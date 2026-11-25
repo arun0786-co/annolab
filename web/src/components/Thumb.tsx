@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Item } from "../api/types";
+import { api } from "../api/client";
 import { useMedia } from "../hooks/useMedia";
 import { peaks } from "../lib/dsp";
 
@@ -30,6 +31,7 @@ export function Thumb({ item }: { item: Item }) {
 function MediaThumb({ item }: { item: Item }) {
   const { url } = useMedia(item.id);
   if (!url) return <div className="thumb skeleton" />;
+  if (item.thumbnail_url) return <img className="thumb" src={api.thumbSrc(item.id)} alt="" loading="lazy" />;
   if (item.kind === "image") return <img className="thumb" src={url} alt="" loading="lazy" />;
   if (item.kind === "video") return <video className="thumb" src={`${url}#t=0.1`} muted preload="metadata" />;
   return <WaveThumb url={url} />;
