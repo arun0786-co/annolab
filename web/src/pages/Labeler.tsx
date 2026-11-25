@@ -78,7 +78,7 @@ interface Loaded {
 async function loadTask(pid: number, taskId: number, userId: number): Promise<Loaded> {
   const [project, task] = await Promise.all([api.project(pid), api.task(taskId)]);
   const item = task.item ?? (await api.item(task.item_id));
-  const all = await api.annotations(item.id, userId);
+  const all = task.annotations ?? (await api.annotations(item.id, userId));
   const anns = all.filter((a) => a.task_id == null || a.task_id === task.id);
   return { project: { ...project, schema: normalizeSchema(project.schema) }, task, item, anns };
 }
@@ -137,7 +137,10 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
   const pickClass = (c: ClassDef) => {
     if (!tool) return;
     setClassByTool((m) => ({ ...m, [tool.key]: c.value }));
-    if (selAnn && selAnn.schema_key === tool.key && selAnn.label !== c.value && !locked.has(selAnn.cid)) edit.patch(selAnn.cid, (a) => ({ ...a, label: c.value }));
+    // Relabel only while editing a selection; in a drawing tool the number keys just pick the next class.
+    const editing = mode === "select" || mode === "pan" || project.modality === "text";
+    if (editing && selAnn && selAnn.schema_key === tool.key && selAnn.label !== c.value && !locked.has(selAnn.cid))
+      edit.patch(selAnn.cid, (a) => ({ ...a, label: c.value }));
   };
 
   async function next() {
@@ -365,7 +368,7 @@ function shortcutGroups(modality: string, tools: [string, string][]): ShortcutGr
   const common: ShortcutGroup = {
     title: "Labeling",
     keys: [
-      ["1-9", "Pick class (relabels the selection)"],
+      ["1-9", "Pick class (in Select mode, relabels the selection)"],
       ...(modality !== "text" ? ([["V", "Select tool"]] as [string, string][]) : []),
       ...tools,
       ["Mod+Z", "Undo"],
@@ -384,7 +387,7 @@ function shortcutGroups(modality: string, tools: [string, string][]): ShortcutGr
       title: "Image",
       keys: [
         ["H or Space", "Pan (hold Space and drag)"],
-        ["+ or -", "Zoom in or out"],
+        ["Plus or Minus", "Zoom in or out"],
         ["0 or F", "Fit to screen"],
         ["Arrows", "Nudge selection 1 px (Shift: 10 px)"],
         ["Enter", "Close polygon while drawing"],
@@ -397,7 +400,7 @@ function shortcutGroups(modality: string, tools: [string, string][]): ShortcutGr
         ["Space", "Play or pause"],
         ["[ or ]", "Step 0.1 s"],
         ["{ or }", "Step 1 s"],
-        ["+ or -", "Zoom time"],
+        ["Plus or Minus", "Zoom time"],
         ["0", "Show full length"],
         ["W", "Waveform or spectrogram"],
         [", or .", "Slower or faster playback"],
@@ -415,6 +418,7 @@ function shortcutGroups(modality: string, tools: [string, string][]): ShortcutGr
         ["K", "Set keyframe on selected track"],
         ["Shift+K", "Remove keyframe here"],
         ["N or Shift+N", "Next or previous keyframe"],
+        ["E", "Mark segment in, then out (segment tool)"],
         [", or .", "Slower or faster playback"],
       ],
     },

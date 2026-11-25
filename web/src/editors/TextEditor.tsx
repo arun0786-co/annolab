@@ -31,6 +31,8 @@ export function TextEditor(p: EditorProps) {
   const text = String(item.meta.text ?? "");
   const docRef = useRef<HTMLDivElement>(null);
   const [cycle, setCycle] = useState(0);
+  // A drag that ended in a text selection also fires click; that click must not select a span.
+  const dragged = useRef(false);
   const spanTool = tool?.type === "span" ? tool : schema.tools.find((t) => t.type === "span") ?? null;
 
   const marks: Mark[] = useMemo(() => {
@@ -76,6 +78,7 @@ export function TextEditor(p: EditorProps) {
     if (a == null || b == null) return;
     const s = snapToWords(text, a, b);
     sel.removeAllRanges();
+    dragged.current = true;
     if (s.end <= s.start) return;
     if (mode === "comment") {
       p.onPin?.({ t: s.start });
@@ -84,11 +87,17 @@ export function TextEditor(p: EditorProps) {
     if (readOnly || !spanTool || !activeClass) return;
     if (!spanTool.classes.some((c) => c.value === activeClass.value)) return;
     const cid = uid();
+    // Not selected after creation, so the next number key picks the class for the next span
+    // instead of relabelling this one. Click a span to select and relabel it.
     edit.add({ cid, schema_key: spanTool.key, label: activeClass.value, geometry: { start: s.start, end: s.end }, attributes: {}, source: "human" });
-    select(cid);
+    select(null);
   }
 
   function onPieceClick(ids: string[]) {
+    if (dragged.current) {
+      dragged.current = false;
+      return;
+    }
     if (window.getSelection()?.isCollapsed === false) return;
     if (!ids.length) {
       if (!readOnly) select(null);
@@ -123,7 +132,7 @@ export function TextEditor(p: EditorProps) {
 
   const selMark = selected ? byId.get(selected) : undefined;
   return (
-    <div className="stage" style={{ overflow: "auto", background: "var(--bg-sunken)" }}>
+    <div className="stage" style={{ overflow: "auto", background: "var(--bg-sunken)", height: "100%" }}>
       {!text ? (
         <div className="state">This item has no text.</div>
       ) : (
