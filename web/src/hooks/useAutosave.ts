@@ -87,6 +87,15 @@ export function useAutosave<T>(value: T, save: (v: T) => Promise<unknown>, opts:
     return () => window.removeEventListener("beforeunload", fn);
   }, []);
 
+  // Leaving the item (route change) saves whatever is still pending.
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      if (version.current !== savedVersion.current) saveRef.current(latest.current).catch(() => undefined);
+    },
+    [opts.key],
+  );
+
   const flush = useCallback(async () => {
     clearTimeout(timer.current);
     if (version.current !== savedVersion.current) await run();
