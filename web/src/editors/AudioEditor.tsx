@@ -60,8 +60,13 @@ function specImage(sp: Spectrogram, theme: "light" | "dark", maxBin: number): HT
   const g = c.getContext("2d")!;
   const img = g.createImageData(sp.frames, maxBin);
   const lut = ramp(theme);
-  const ceil = sp.maxDb;
-  const floor = ceil - 60;
+  // Map the median bin level (mostly background noise) to the surface and the 99.7th percentile to full ink.
+  const sample: number[] = [];
+  const stride = Math.max(1, Math.floor((sp.frames * maxBin) / 20000));
+  for (let f = 0; f < sp.frames; f++) for (let b = 0; b < maxBin; b += stride) sample.push(sp.db[f * sp.bins + b]);
+  sample.sort((a, b) => a - b);
+  const floor = sample[Math.floor(sample.length * 0.5)] ?? sp.minDb;
+  const ceil = Math.max(floor + 1, sample[Math.floor(sample.length * 0.997)] ?? sp.maxDb);
   for (let f = 0; f < sp.frames; f++)
     for (let b = 0; b < maxBin; b++) {
       const v = Math.round(clamp((sp.db[f * sp.bins + b] - floor) / (ceil - floor), 0, 1) * 255);
