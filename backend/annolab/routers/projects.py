@@ -15,7 +15,7 @@ from ..deps import admin_only, current_user, get_db, get_project, require
 from ..labelschema import normalize_schema
 from ..models import AuditEvent, Item, Project, Review, Task, User
 from ..serialize import project_out, status_counts, user_brief
-from ..services import project_sets
+from ..services import project_sets, refresh_item_status
 
 router = APIRouter(tags=["projects"])
 
@@ -72,6 +72,11 @@ def patch_project(project_id: int, body: S.ProjectPatch, admin: User = Depends(a
     for k, v in changes.items():
         if k != "schema":
             setattr(p, k, v)
+    if {"annotators_per_item", "review_required"} & changes.keys():
+        # Items that now have enough (or too few) submissions move on without waiting for another event.
+        db.flush()
+        for item in db.scalars(select(Item).where(Item.project_id == p.id, Item.status != "approved")).all():
+            refresh_item_status(db, item)
     audit.record(db, admin.id, "project.update", "project", p.id, p.id, changes)
     db.commit()
     return project_out(p, status_counts(db, [p.id])[p.id], _agreement(db, p))
@@ -81,6 +86,9 @@ def _schema_values(schema: dict) -> set[str]:
     for t in schema.get("tools", []):
         out.add(f"{t['key']}:{t['type']}")
         out.update(f"{t['key']}/{c['value']}" for c in t["classes"])
+        for a in t.get("attributes", []):
+            out.add(f"{t['key']}.{a['key']}:{a['type']}")
+            out.update(f"{t['key']}.{a['key']}={o}" for o in a.get("options", []) if a["type"] == "select")
     for c in schema.get("classifications", []):
         out.add(f"{c['key']}:{c['type']}")
         out.update(f"{c['key']}/{o}" for o in c.get("options", []))
