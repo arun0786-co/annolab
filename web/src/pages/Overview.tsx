@@ -230,7 +230,7 @@ function Tile({ label, value, sub }: { label: string; value: string | null; sub?
 }
 
 function describe(e: ActivityEvent): string {
-  const a = e.action.replace(/_/g, " ");
+  const a = e.action.replace(/[._]/g, " ");
   const what = e.entity_id != null ? `${e.entity} #${e.entity_id}` : e.entity;
   const extra = typeof e.payload?.decision === "string" ? ` (${e.payload.decision})` : typeof e.payload?.count === "number" ? ` (${e.payload.count})` : "";
   return `${a} ${what}${extra}`;
