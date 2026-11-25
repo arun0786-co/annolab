@@ -110,4 +110,4 @@ Screens:
 - Web: typecheck clean (`tsc --noEmit`), vitest for geometry utils (interpolation, hit testing, undo stack), Playwright e2e for login -> label image -> submit -> review approve.
 - README with real screenshots (Playwright, committed under docs/images, PNG, each < 400 KB), architecture diagram, measured numbers only.
 - docs/how-it-works.md teaching notes: design decisions, consensus math, queue logic.
-- Commits: many small, short lowercase messages (e.g. "add queue endpoint"), no trailers, no mention of AI tools anywhere.
+- Commits: many small, short lowercase messages (e.g. "add queue endpoint"), no trailers.
