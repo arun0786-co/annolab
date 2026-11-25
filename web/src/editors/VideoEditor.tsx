@@ -276,7 +276,8 @@ export function VideoEditor(p: EditorProps) {
     seek(((e.clientX - b.left - LABEL_W) / Math.max(1, b.width - LABEL_W)) * duration);
   }
 
-  const LABEL_W = 140;
+  // Review rows carry the annotator's name too, so they get a wider label column.
+  const LABEL_W = readOnly ? 200 : 140;
   const tx = (tt: number) => LABEL_W + (tt / Math.max(1e-6, duration)) * Math.max(1, tl.width - LABEL_W);
   const rows = readOnly
     ? (p.ghosts ?? []).flatMap((g) => g.anns.map((a) => ({ a, color: g.color, who: g.name })))
@@ -398,7 +399,7 @@ export function VideoEditor(p: EditorProps) {
             Tracks
           </span>
           {Array.from({ length: Math.max(0, Math.floor(duration)) + 1 }, (_, s) => (
-            <span key={s} className="num faint" style={{ position: "absolute", left: tx(s), top: 4, fontSize: 10, borderLeft: "1px solid var(--border-strong)", paddingLeft: 3, height: 18 }}>
+            <span key={s} className="num faint" style={{ position: "absolute", left: tx(s), top: 4, fontSize: "var(--fs-xs)", borderLeft: "1px solid var(--border-strong)", paddingLeft: 3, height: 18 }}>
               {s}s
             </span>
           ))}
@@ -436,7 +437,7 @@ export function VideoEditor(p: EditorProps) {
           </div>
         )}
         {rows.length === 0 && (
-          <div className="faint" style={{ padding: "6px 8px", fontSize: 12 }}>
+          <div className="faint" style={{ padding: "6px 8px", fontSize: "var(--fs-sm)" }}>
             {readOnly ? "No tracks from the selected annotators." : "No tracks. Pick the box tool and drag on the frame to start one."}
           </div>
         )}
@@ -458,11 +459,13 @@ export function VideoEditor(p: EditorProps) {
                 if (e.clientX - b.left > LABEL_W) scrubTo(e);
               }}
             >
-              <span style={{ position: "absolute", left: 8, top: 2, width: LABEL_W - 12, fontSize: 11, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }} className="row">
-                {color && <i className="swatch" style={{ background: color }} />}
-                <i className="swatch" style={{ background: c }} />
-                {who ? `${who}: ` : ""}
-                {className(schema, a.schema_key, a.label)}
+              <span style={{ position: "absolute", left: 8, top: 2, width: LABEL_W - 18, fontSize: 11 }} className="row" title={`${who ? `${who}: ` : ""}${className(schema, a.schema_key, a.label)}`}>
+                {/* One swatch: the annotator in review, the class while labeling (the bar already shows the class). */}
+                <i className="swatch" style={{ background: color || c }} />
+                <span style={{ overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", minWidth: 0 }}>
+                  {who ? `${who}: ` : ""}
+                  {className(schema, a.schema_key, a.label)}
+                </span>
               </span>
               {ext && !seg && <span style={{ position: "absolute", left: tx(ext.start), width: Math.max(2, tx(ext.end) - tx(ext.start)), top: 8, height: 4, borderRadius: 2, background: c }} />}
               {seg && (
@@ -497,7 +500,9 @@ export function VideoEditor(p: EditorProps) {
             </div>
           );
         })}
-        <div aria-hidden="true" style={{ position: "absolute", left: tx(t), top: 0, bottom: 0, width: 2, marginLeft: -1, background: "var(--bad)", pointerEvents: "none" }} />
+        {rows.length > 0 && (
+          <div aria-hidden="true" style={{ position: "absolute", left: tx(t), top: 0, bottom: 0, width: 2, marginLeft: -1, background: "var(--bad)", pointerEvents: "none" }} />
+        )}
       </div>
       <div className="transport">
         <button className="btn btn-sm btn-icon" onClick={() => seek(t - 1 / fps)} aria-label="Previous frame" title="Previous frame ([)">
