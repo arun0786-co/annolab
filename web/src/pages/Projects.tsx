@@ -20,7 +20,8 @@ export function Projects() {
   const [filter, setFilter] = useState<"all" | Modality>("all");
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
-  const [cursor, setCursor] = useState(0);
+  // -1 until j/k, arrows or the mouse pick a row, so nothing looks selected on load.
+  const [cursor, setCursor] = useState(-1);
   const nav = useNavigate();
 
   const rows = useMemo(
@@ -124,7 +125,7 @@ export function Projects() {
                 const total = p.item_count ?? 0;
                 const done = (c.labeled ?? 0) + (c.in_review ?? 0) + (c.approved ?? 0);
                 return (
-                  <tr key={p.id} aria-selected={i === cursor} onMouseEnter={() => setCursor(i)}>
+                  <tr key={p.id} aria-current={i === cursor ? "true" : undefined} onMouseEnter={() => setCursor(i)}>
                     <td>
                       <Link to={`/projects/${p.id}`} style={{ color: "var(--text)", fontWeight: 500 }}>
                         {p.name}

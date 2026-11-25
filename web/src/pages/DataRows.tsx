@@ -23,7 +23,8 @@ export function DataRows() {
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [page, setPage] = useState(1);
-  const [cursor, setCursor] = useState(0);
+  // -1 until j/k, arrows or the mouse pick a row, so nothing looks selected on load.
+  const [cursor, setCursor] = useState(-1);
   const [upload, setUpload] = useState<{ busy: boolean; msg?: string; error?: string }>({ busy: false });
   const [drag, setDrag] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -147,7 +148,7 @@ export function DataRows() {
               </thead>
               <tbody>
                 {items.map((it, i) => (
-                  <tr key={it.id} aria-selected={i === cursor} onClick={() => open(i)} style={{ cursor: "pointer" }} onMouseEnter={() => setCursor(i)}>
+                  <tr key={it.id} aria-current={i === cursor ? "true" : undefined} onClick={() => open(i)} style={{ cursor: "pointer" }} onMouseEnter={() => setCursor(i)}>
                     <td>
                       <Thumb item={it} />
                     </td>

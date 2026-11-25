@@ -536,7 +536,7 @@ kbd {
 .table tbody tr:hover {
   background: var(--bg-hover);
 }
-.table tbody tr[aria-selected="true"] {
+.table tbody tr[aria-current="true"] {
   background: var(--accent-soft);
 }
 .table .r {
