@@ -165,7 +165,18 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
   const pinsView: Pin[] = pins.map((p, i) => ({ ...p, index: i + 1 }));
   const addPin = (a: Anchor) => {
     setPins((ps) => [...ps, { id: `p${Date.now()}`, ...a, annotation_id: a.annotation_id ?? picked?.id ?? null, body: "" }]);
-    setTimeout(() => document.querySelector<HTMLTextAreaElement>(".pin-input:last-of-type")?.focus(), 0);
+    // Focus the new note. A click on the canvas moves focus to the canvas on mousedown, after this
+    // runs, so focus again when the click event arrives. A timer is too late: browsers run queued
+    // key events before timers, so the first words would go to the canvas as hotkeys.
+    const focusLast = () => {
+      const els = document.querySelectorAll<HTMLTextAreaElement>(".pin-input");
+      els[els.length - 1]?.focus();
+    };
+    window.addEventListener("click", focusLast, { once: true });
+    setTimeout(() => {
+      window.removeEventListener("click", focusLast);
+      if (!(document.activeElement instanceof HTMLTextAreaElement)) focusLast();
+    }, 300);
   };
 
   async function decide(decision: "approve" | "reject") {
