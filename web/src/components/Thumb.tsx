@@ -17,8 +17,10 @@ export function Thumb({ item }: { item: Item }) {
   }, []);
   if (item.kind === "text")
     return (
-      <div className="thumb-text" aria-hidden="true">
-        {String(item.meta.text ?? "").slice(0, 120)}
+      <div className="thumb-text num" aria-hidden="true">
+        {String(item.meta.text ?? "").split(/\s+/).filter(Boolean).length}
+        <br />
+        words
       </div>
     );
   return (

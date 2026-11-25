@@ -416,7 +416,7 @@ export function AudioEditor(p: EditorProps) {
     <div style={{ display: "grid", gridTemplateRows: "auto 1fr auto auto", height: "100%", minHeight: 0, background: "var(--bg)" }}>
       <audio ref={audioRef} src={media ?? undefined} preload="auto" onEnded={() => setPlaying(false)} onPause={() => setPlaying(false)} />
       {/* ruler */}
-      <div className="timeline" style={{ height: 22, borderBottom: "1px solid var(--border)", position: "relative", overflow: "hidden", fontSize: 10, color: "var(--text-3)" }} aria-hidden="true">
+      <div className="timeline" style={{ height: 22, borderBottom: "1px solid var(--border)", position: "relative", overflow: "hidden", fontSize: "var(--fs-xs)", color: "var(--text-3)" }} aria-hidden="true">
         {ticks.out.map((t) => (
           <span key={t} className="num" style={{ position: "absolute", left: t2x(t), top: 4, borderLeft: "1px solid var(--border-strong)", paddingLeft: 3, height: 18 }}>
             {fmtClock(t, ticks.step < 0.1 ? 2 : 1)}
@@ -598,7 +598,7 @@ export function AudioEditor(p: EditorProps) {
                       borderLeft: p.ghostColorBy === "class" ? `3px solid ${gl.color}` : undefined,
                       outline: picked ? "2px solid var(--focus)" : undefined,
                       borderRadius: 3,
-                      fontSize: 10,
+                      fontSize: "var(--fs-xs)",
                       color: inkOn(ghostColor(gl, a, schema, theme, p.ghostColorBy)),
                       paddingLeft: 4,
                       overflow: "hidden",
