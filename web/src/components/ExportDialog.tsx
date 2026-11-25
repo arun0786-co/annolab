@@ -13,13 +13,15 @@ const FORMATS: { id: ExportFormat; name: string; desc: string; modalities: strin
 export function ExportDialog({ project, onClose }: { project: Project; onClose: () => void }) {
   const supported = FORMATS.filter((f) => f.modalities.includes(project.modality));
   const [format, setFormat] = useState<ExportFormat>(supported[0]?.id ?? "jsonl");
+  const [status, setStatus] = useState("done");
+  const [annotator, setAnnotator] = useState("best");
   const [state, setState] = useState<{ kind: "idle" } | { kind: "busy" } | { kind: "done"; name: string; size: number } | { kind: "error"; msg: string }>({
     kind: "idle",
   });
   async function run() {
     setState({ kind: "busy" });
     try {
-      const { blob, filename } = await api.exportBlob(project.id, format);
+      const { blob, filename } = await api.exportBlob(project.id, format, { status, annotator });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -68,8 +70,25 @@ export function ExportDialog({ project, onClose }: { project: Project; onClose: 
           );
         })}
       </fieldset>
+      <div className="row" style={{ gap: 12, marginTop: 12 }}>
+        <label className="field" style={{ flex: 1 }}>
+          <span>Items</span>
+          <select className="select" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="done">With submitted work</option>
+            <option value="approved">Approved only</option>
+            <option value="all">All items</option>
+          </select>
+        </label>
+        <label className="field" style={{ flex: 1 }}>
+          <span>Annotations per item</span>
+          <select className="select" value={annotator} onChange={(e) => setAnnotator(e.target.value)}>
+            <option value="best">Best annotator (most agreement)</option>
+            <option value="all">Every annotator</option>
+          </select>
+        </label>
+      </div>
       <p className="faint" style={{ marginTop: 12 }}>
-        Includes submitted annotations. Items with a reviewer decision carry it in the export.
+        Only submitted annotations are exported. Items with a reviewer decision carry it in the export.
       </p>
       <div aria-live="polite" style={{ marginTop: 8 }}>
         {state.kind === "done" && (

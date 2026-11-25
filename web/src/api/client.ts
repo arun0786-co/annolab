@@ -126,6 +126,7 @@ function normStats(s: Record<string, unknown>): ProjectStats {
       items: Number(a.submitted ?? 0),
       skipped: Number(a.skipped ?? 0),
       median_seconds: a.median_seconds == null ? null : Number(a.median_seconds),
+      total_seconds: a.total_seconds == null ? null : Number(a.total_seconds),
     };
   });
   const ag = (s.agreement ?? {}) as Record<string, unknown>;
@@ -223,8 +224,8 @@ export const api = {
   consensus: (itemId: number) => request<Consensus>("GET", `/items/${itemId}/consensus`),
 
   exportUrl: (projectId: number, format: ExportFormat) => `${BASE}/projects/${projectId}/export${qs({ format })}`,
-  exportBlob: async (projectId: number, format: ExportFormat) => {
-    const res = await raw("GET", `/projects/${projectId}/export`, undefined, { format });
+  exportBlob: async (projectId: number, format: ExportFormat, opts: { status?: string; annotator?: string } = {}) => {
+    const res = await raw("GET", `/projects/${projectId}/export`, undefined, { format, ...opts });
     const cd = res.headers.get("Content-Disposition") ?? "";
     const m = /filename="?([^";]+)"?/.exec(cd);
     return { blob: await res.blob(), filename: m?.[1] ?? `export.${format === "yolo" ? "zip" : format === "coco" ? "json" : "jsonl"}` };
