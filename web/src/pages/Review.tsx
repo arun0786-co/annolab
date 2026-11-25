@@ -25,7 +25,7 @@ export function ReviewQueue() {
   const load = useCallback(() => {
     setState("loading");
     api.nextReview(pid).then(
-      (it) => (it ? nav(`/projects/${pid}/items/${it.id}?queue=1`, { replace: true }) : setState("empty")),
+      (r) => (r ? nav(`/projects/${pid}/items/${r.item.id}?queue=1`, { replace: true }) : setState("empty")),
       (e) => setState(e),
     );
   }, [pid, nav]);
@@ -54,26 +54,70 @@ export function ReviewQueue() {
   );
 }
 
+interface Layer {
+  user_id: number;
+  name: string;
+  annotations: Annotation[];
+}
+
 interface Loaded {
   project: Project;
   item: Item;
   consensus: Consensus | null;
-  layers: { user_id: number; name: string; annotations: Annotation[] }[];
+  layers: Layer[];
   reviews: ReviewT[];
+  score: number | null;
 }
 
 async function load(pid: number, itemId: number): Promise<Loaded> {
-  const [project, item] = await Promise.all([api.project(pid), api.item(itemId)]);
-  const consensus = await api.consensus(itemId).catch(() => null);
-  let layers = consensus?.annotators ?? [];
-  if (!layers.length) {
-    const all = await api.annotations(itemId);
-    const by = new Map<number, Annotation[]>();
-    all.forEach((a) => by.set(a.user_id ?? 0, [...(by.get(a.user_id ?? 0) ?? []), a]));
-    layers = [...by.entries()].map(([user_id, annotations]) => ({ user_id, name: `user ${user_id}`, annotations }));
+  const [project, ri, consensus] = await Promise.all([api.project(pid), api.reviewItem(itemId), api.consensus(itemId).catch(() => null)]);
+  const layers = ri.annotators.map((a) => ({ user_id: a.user.id, name: a.user.name, annotations: a.annotations }));
+  return {
+    project: { ...project, schema: normalizeSchema(project.schema) },
+    item: ri.item,
+    consensus,
+    layers,
+    reviews: ri.reviews,
+    score: consensus?.score ?? ri.consensus_score,
+  };
+}
+
+interface DiffRow {
+  a: Annotation;
+  b: Annotation;
+  score: number;
+  sameLabel: boolean;
+}
+
+/** Matched pairs and leftovers between two annotators: the server's matching when present, else the local one. */
+function diffOf(A: Layer, B: Layer, consensus: Consensus | null) {
+  const ga = A.annotations.filter((a) => a.geometry);
+  const gb = B.annotations.filter((a) => a.geometry);
+  if (consensus?.tools.length) {
+    const byId = new Map<number, Annotation>([...ga, ...gb].filter((a) => a.id != null).map((a) => [a.id!, a]));
+    const rows: DiffRow[] = [];
+    const onlyA: Annotation[] = [];
+    const onlyB: Annotation[] = [];
+    for (const t of consensus.tools)
+      for (const p of t.pairs) {
+        const flip = p.a === B.user_id && p.b === A.user_id;
+        if (!flip && !(p.a === A.user_id && p.b === B.user_id)) continue;
+        for (const m of p.matches) {
+          const a = byId.get((flip ? m.b_id : m.a_id) ?? -1);
+          const b = byId.get((flip ? m.a_id : m.b_id) ?? -1);
+          if (a && b) rows.push({ a, b, score: m.iou, sameLabel: m.label_match });
+        }
+        for (const id of flip ? p.unmatched_b : p.unmatched_a) id != null && byId.has(id) && onlyA.push(byId.get(id)!);
+        for (const id of flip ? p.unmatched_a : p.unmatched_b) id != null && byId.has(id) && onlyB.push(byId.get(id)!);
+      }
+    return { rows, onlyA, onlyB };
   }
-  const reviews = await api.reviews(itemId).catch(() => []);
-  return { project: { ...project, schema: normalizeSchema(project.schema) }, item, consensus, layers, reviews };
+  const m = matchSets(ga, gb);
+  return {
+    rows: m.pairs.map((p) => ({ a: ga[p.i], b: gb[p.j], score: p.score, sameLabel: p.sameLabel })),
+    onlyA: m.onlyA.map((i) => ga[i]),
+    onlyB: m.onlyB.map((j) => gb[j]),
+  };
 }
 
 export function ReviewItem() {
@@ -89,7 +133,7 @@ interface DraftPin extends Anchor {
   body: string;
 }
 
-function ReviewView({ project, item, consensus, layers, reviews }: Loaded) {
+function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded) {
   const nav = useNavigate();
   const { user } = useSession();
   const { theme } = useTheme();
@@ -115,10 +159,8 @@ function ReviewView({ project, item, consensus, layers, reviews }: Loaded) {
     const vis = layers.filter((l) => visible.has(l.user_id));
     if (vis.length < 2) return null;
     const [A, B] = vis;
-    const ga = A.annotations.filter((a) => a.geometry);
-    const gb = B.annotations.filter((a) => a.geometry);
-    return { A, B, ga, gb, ...matchSets(ga, gb) };
-  }, [layers, visible]);
+    return { A, B, ...diffOf(A, B, consensus) };
+  }, [layers, visible, consensus]);
 
   const pinsView: Pin[] = pins.map((p, i) => ({ ...p, index: i + 1 }));
   const addPin = (a: Anchor) => {
@@ -199,9 +241,9 @@ function ReviewView({ project, item, consensus, layers, reviews }: Loaded) {
         </div>
         <span className={`badge ${STATUS_META[item.status]?.badge ?? ""}`}>{STATUS_META[item.status]?.label ?? item.status}</span>
         <span className="spacer" />
-        {consensus && (
-          <span className="muted num" title={consensus.metric}>
-            agreement <strong style={{ color: "var(--text)" }}>{fmtScore(consensus.score)}</strong> <span className="faint">{consensus.metric}</span>
+        {score != null && (
+          <span className="muted num" title="Mean pairwise F1 agreement across tools and classifications">
+            agreement <strong style={{ color: "var(--text)" }}>{fmtScore(score)}</strong>
           </span>
         )}
         <HelpButton />
@@ -275,7 +317,10 @@ function ReviewView({ project, item, consensus, layers, reviews }: Loaded) {
               <input type="checkbox" checked={visible.has(l.user_id)} onChange={() => toggleLayer(l.user_id)} />
               <i className="swatch" style={{ background: annotatorColor(i, theme), borderRadius: 5 }} />
               <span style={{ flex: 1 }}>{l.name}</span>
-              <span className="faint num">{l.annotations.filter((a) => a.geometry).length}</span>
+              <span className="faint num" title="Agreement with the others">
+                {consensus?.per_annotator?.[String(l.user_id)] != null ? fmtScore(consensus.per_annotator[String(l.user_id)]) + " · " : ""}
+                {l.annotations.filter((a) => a.geometry).length}
+              </span>
               {i < 9 && <kbd>{i + 1}</kbd>}
             </label>
           ))}
@@ -288,42 +333,42 @@ function ReviewView({ project, item, consensus, layers, reviews }: Loaded) {
           ) : (
             <div>
               <p className="muted" style={{ fontSize: "var(--fs-sm)", marginBottom: 6 }}>
-                {diff.A.name} vs {diff.B.name}: {diff.pairs.length} matched, {diff.pairs.filter((p) => !p.sameLabel).length} label conflicts, {diff.onlyA.length + diff.onlyB.length} unmatched
+                {diff.A.name} vs {diff.B.name}: {diff.rows.length} matched, {diff.rows.filter((p) => !p.sameLabel).length} label conflicts, {diff.onlyA.length + diff.onlyB.length} unmatched
               </p>
-              {diff.pairs.map((p) => (
+              {diff.rows.map((p, k) => (
                 <button
-                  key={`${p.i}-${p.j}`}
+                  key={k}
                   className="diff-row"
                   style={{ width: "100%", background: "none", border: 0, borderBottom: "1px solid var(--border)", textAlign: "left", color: "inherit", font: "inherit", cursor: "pointer" }}
-                  onClick={() => setPicked(diff.ga[p.i])}
+                  onClick={() => setPicked(p.a)}
                 >
                   <span className="row" style={{ gap: 6 }}>
-                    <i className="swatch" style={{ background: classColor(schema, diff.ga[p.i].schema_key, diff.ga[p.i].label, theme) }} />
-                    {nameOf(diff.ga[p.i])}
+                    <i className="swatch" style={{ background: classColor(schema, p.a.schema_key, p.a.label, theme) }} />
+                    {nameOf(p.a)}
                     {!p.sameLabel && (
                       <span className="badge badge-warn" title="Label differs">
-                        vs {nameOf(diff.gb[p.j])}
+                        vs {nameOf(p.b)}
                       </span>
                     )}
                   </span>
-                  <span className="num">{p.score.toFixed(2)}</span>
+                  <span className="num" title="overlap (IoU)">{p.score.toFixed(2)}</span>
                 </button>
               ))}
-              {diff.onlyA.map((i) => (
-                <div key={`a${i}`} className="diff-row">
+              {diff.onlyA.map((a, k) => (
+                <button key={`a${k}`} className="diff-row" style={{ width: "100%", background: "none", border: 0, borderBottom: "1px solid var(--border)", textAlign: "left", color: "inherit", font: "inherit", cursor: "pointer" }} onClick={() => setPicked(a)}>
                   <span>
-                    {nameOf(diff.ga[i])} <span className="faint">only {diff.A.name}</span>
+                    {nameOf(a)} <span className="faint">only {diff.A.name}</span>
                   </span>
-                  <span className="badge badge-bad">miss</span>
-                </div>
+                  <span className="badge badge-bad">unmatched</span>
+                </button>
               ))}
-              {diff.onlyB.map((j) => (
-                <div key={`b${j}`} className="diff-row">
+              {diff.onlyB.map((b, k) => (
+                <button key={`b${k}`} className="diff-row" style={{ width: "100%", background: "none", border: 0, borderBottom: "1px solid var(--border)", textAlign: "left", color: "inherit", font: "inherit", cursor: "pointer" }} onClick={() => setPicked(b)}>
                   <span>
-                    {nameOf(diff.gb[j])} <span className="faint">only {diff.B.name}</span>
+                    {nameOf(b)} <span className="faint">only {diff.B.name}</span>
                   </span>
-                  <span className="badge badge-bad">miss</span>
-                </div>
+                  <span className="badge badge-bad">unmatched</span>
+                </button>
               ))}
               <p className="faint" style={{ fontSize: "var(--fs-xs)", marginTop: 6 }}>
                 Matched one-to-one by highest overlap (IoU at least 0.5 within the same tool).
@@ -397,6 +442,7 @@ function ReviewView({ project, item, consensus, layers, reviews }: Loaded) {
               {reviews.map((r) => (
                 <li key={r.id} style={{ flexWrap: "wrap" }}>
                   <span className={`badge ${r.decision === "approve" ? "badge-good" : "badge-bad"}`}>{r.decision}</span>
+                  {r.reviewer && <strong>{r.reviewer.name}</strong>}
                   <span className="muted">{r.comment || "No comment"}</span>
                   <time dateTime={r.created_at}>{fmtAgo(r.created_at)}</time>
                 </li>
