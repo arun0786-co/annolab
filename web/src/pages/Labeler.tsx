@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Annotation, ClassDef, Item, Project, Review, Task } from "../api/types";
 import { HelpButton, ThemeButton } from "../components/AppShell";
+import { Dialog } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { Empty, ErrorState, Loading } from "../components/States";
 import { useAsync } from "../hooks/useAsync";
@@ -118,6 +119,7 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
   const [toast, setToast] = useState<string | null>(null);
   const [busy, setBusy] = useState<"submit" | "skip" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [confirmSkip, setConfirmSkip] = useState(false);
   const media = useMedia(project.modality === "text" ? null : item.id);
   const elapsed = useElapsed(task.time_spent_ms ?? 0);
 
@@ -165,8 +167,15 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
       setBusy(null);
     }
   }
+  // Skipping discards this task's annotations, so ask first when there are any.
+  const askSkip = () => {
+    if (busy) return;
+    if (anns.length) setConfirmSkip(true);
+    else skip();
+  };
   async function skip() {
     if (busy) return;
+    setConfirmSkip(false);
     setBusy("skip");
     setActionError(null);
     try {
@@ -198,7 +207,7 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
     "mod+y": store.redo,
     enter: submit,
     "mod+enter": submit,
-    s: skip,
+    s: askSkip,
     delete: () => selected && remove(selected),
     escape: () => setSelected(null),
     "shift+h": () => selected && toggle(hidden, setHidden, selected),
@@ -212,7 +221,7 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
     const hk = classHotkey(c, i);
     if (hk) keys[hk.toLowerCase()] = () => pickClass(c);
   });
-  useHotkeys(keys);
+  useHotkeys(keys, !confirmSkip);
 
   useShortcutGroups(shortcutGroups(project.modality, tools.map((t) => [TOOL_KEY[t.type].toUpperCase(), t.name])));
 
@@ -265,7 +274,7 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
         </button>
         <HelpButton />
         <ThemeButton />
-        <button className="btn" onClick={skip} disabled={!!busy} title="Skip (S)">
+        <button className="btn" onClick={askSkip} disabled={!!busy} title="Skip (S)">
           Skip <kbd>S</kbd>
         </button>
         <button className="btn btn-primary" onClick={submit} disabled={!!busy} title="Submit (Enter)">
@@ -341,6 +350,26 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
         <div className="toast" role="status">
           {toast}
         </div>
+      )}
+      {confirmSkip && (
+        <Dialog
+          title="Skip this item?"
+          onClose={() => setConfirmSkip(false)}
+          footer={
+            <>
+              <button className="btn" onClick={() => setConfirmSkip(false)}>
+                Keep labeling
+              </button>
+              <button className="btn btn-danger" onClick={skip}>
+                Skip and discard
+              </button>
+            </>
+          }
+        >
+          <p>
+            Your {anns.length} annotation{anns.length === 1 ? "" : "s"} on this item will be discarded and the item goes back to the queue for someone else.
+          </p>
+        </Dialog>
       )}
     </div>
   );
