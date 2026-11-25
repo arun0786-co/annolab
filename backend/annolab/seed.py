@@ -58,8 +58,8 @@ HEART_SCHEMA = {
     "tools": [{
         "key": "heart", "type": "segment", "name": "Heart sounds",
         "classes": [
-            {"value": "S1", "name": "S1", "color": "#d1495b", "hotkey": "1"},
-            {"value": "S2", "name": "S2", "color": "#2e86ab", "hotkey": "2"},
+            {"value": "S1", "name": "S1", "color": "#ec4647", "hotkey": "1"},
+            {"value": "S2", "name": "S2", "color": "#257de0", "hotkey": "2"},
         ],
         "attributes": [{"key": "confidence", "type": "select", "options": ["low", "medium", "high"]}],
     }],
@@ -77,7 +77,7 @@ IMAGE_SCHEMA = {
          "attributes": [{"key": "truncated", "type": "select", "options": ["no", "yes"]}]},
         {"key": "outline", "type": "polygon", "name": "Outline",
          "classes": [{"value": c} for c in ("circle", "rectangle", "triangle", "cup")]},
-        {"key": "center", "type": "point", "name": "Centre point", "classes": [{"value": "center"}]},
+        {"key": "center", "type": "point", "name": "Centre point", "classes": [{"value": "center", "color": "#7f7f7f"}]},
     ],
     "classifications": [
         {"key": "scene", "name": "Scene type", "type": "radio", "options": ["photo", "synthetic"]},

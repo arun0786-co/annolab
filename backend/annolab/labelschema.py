@@ -16,11 +16,11 @@ TOOLS_BY_MODALITY: dict[str, set[str]] = {
     "text": {"span"},
 }
 
-# Okabe-Ito categorical palette (colour-blind safe) with gray in place of black so it
-# also reads on a dark background. Used when a class has no colour.
+# Default class colours: the same eight light-theme steps as web/src/lib/palette.ts,
+# which swaps in a matching dark step at display time. Keep the two lists in sync.
 DEFAULT_PALETTE = [
-    "#0072b2", "#e69f00", "#009e73", "#cc79a7",
-    "#56b4e9", "#d55e00", "#f0e442", "#7f7f7f",
+    "#257de0", "#f47230", "#00b894", "#f2a600",
+    "#ee7fac", "#008a17", "#6a4ce2", "#ec4647",
 ]
 
 _HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
@@ -119,15 +119,24 @@ def normalize_schema(raw: dict[str, Any], modality: str) -> dict[str, Any]:
     """Validate a schema for a modality and fill default colours. Raises ValueError."""
     schema = LabelSchema.model_validate(raw or {})
     allowed = TOOLS_BY_MODALITY[modality]
+    # Colours are assigned across the whole schema: a class value keeps one colour in every
+    # tool, and different values get the next unused palette slot.
+    by_value = {c.value: c.color for t in schema.tools for c in t.classes if c.color}
+    used = {c.lower() for c in by_value.values()}
+    n_default = 0
     for tool in schema.tools:
         if tool.type not in allowed:
             raise ValueError(f"tool type {tool.type!r} is not available for {modality} projects")
         seen: set[str] = set()
-        for i, cls in enumerate(tool.classes):
+        for cls in tool.classes:
             if not cls.name:
                 cls.name = cls.value
             if not cls.color:
-                cls.color = DEFAULT_PALETTE[i % len(DEFAULT_PALETTE)]
+                cls.color = by_value.get(cls.value) or next(
+                    (c for c in DEFAULT_PALETTE if c not in used), DEFAULT_PALETTE[n_default % len(DEFAULT_PALETTE)])
+                n_default += 1
+                by_value.setdefault(cls.value, cls.color)
+                used.add(cls.color)
             if cls.hotkey:
                 if cls.hotkey in seen:
                     raise ValueError(f"tool {tool.key!r}: hotkey {cls.hotkey} used twice")

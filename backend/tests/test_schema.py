@@ -64,3 +64,14 @@ def test_track_and_span_geometry():
         validate_annotation(ts, {"schema_key": "ner", "label": "drug", "geometry": {"start": 0.5, "end": 3}})
     with pytest.raises(ValueError, match="start < end"):
         validate_annotation(ts, {"schema_key": "ner", "label": "drug", "geometry": {"start": 3, "end": 3}})
+
+
+def test_default_colors_follow_the_class_across_tools():
+    schema = normalize_schema({"tools": [
+        {"key": "box", "type": "bbox", "classes": [{"value": "car"}, {"value": "dog", "color": DEFAULT_PALETTE[1]}]},
+        {"key": "outline", "type": "polygon", "classes": [{"value": "dog"}, {"value": "cat"}]},
+    ]}, "image")
+    box, outline = schema["tools"]
+    assert [c["color"] for c in box["classes"]] == [DEFAULT_PALETTE[0], DEFAULT_PALETTE[1]]
+    # dog keeps its colour, cat takes the next free slot instead of repeating box's first class
+    assert [c["color"] for c in outline["classes"]] == [DEFAULT_PALETTE[1], DEFAULT_PALETTE[2]]
