@@ -454,7 +454,7 @@ function shortcutGroups(modality: string, tools: [string, string][]): ShortcutGr
         [", or .", "Slower or faster playback"],
         ["M", "Propose segments"],
         ["Shift+A", "Accept all proposals"],
-        ["Tab", "Next segment (when the plot has focus)"],
+        ["N or Shift+N", "Next or previous segment"],
       ],
     },
     video: {

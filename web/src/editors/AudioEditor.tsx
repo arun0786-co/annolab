@@ -257,10 +257,11 @@ export function AudioEditor(p: EditorProps) {
       else if (k === "m" && !readOnly) propose();
       else if (k === "a" && !readOnly && selected) accept([selected]);
       else if (k === "A" && !readOnly) accept(proposals.map((a) => a.cid));
-      else if (k === "Tab" && visible.length && (t === document.body || t === plotRef.current)) {
+      else if ((k === "n" || k === "N") && visible.length) {
+        // N / Shift+N, like keyframes in the video editor. Tab is left to the browser.
         const sorted = [...visible].sort((x, y) => (x.geometry as Seg).start - (y.geometry as Seg).start);
         const i = sorted.findIndex((a) => a.cid === selected);
-        const n = sorted[(i + (e.shiftKey ? -1 + sorted.length : 1)) % sorted.length];
+        const n = sorted[i < 0 ? (k === "N" ? sorted.length - 1 : 0) : (i + (k === "N" ? sorted.length - 1 : 1)) % sorted.length];
         select(n.cid);
         seek((n.geometry as Seg).start);
       } else handled = false;
