@@ -13,7 +13,7 @@ help:
 	@echo "install        install backend (and web, if present) dependencies"
 	@echo "seed           wipe data/ and generate the demo database and media"
 	@echo "dev            run the API on $(HOST):$(API_PORT) (and Vite, if web/ exists)"
-	@echo "test           backend pytest (plus web typecheck and unit tests, if web/ exists)"
+	@echo "test           backend pytest, web vitest, tsc and Playwright e2e"
 	@echo "openapi        regenerate backend/openapi.json"
 	@echo "eval-prelabel  precision/recall of pre-labels on the seeded data"
 	@echo "screenshots    Playwright screenshots into docs/images (web)"
@@ -60,17 +60,20 @@ web-typecheck:
 web-test:
 	cd web && npm test
 
+# e2e and screenshots seed a throwaway data dir and start their own API and Vite on free ports,
+# so they never touch data/ or a running `make dev`.
 web-e2e:
-	cd web && npm run e2e
+	./scripts/with-stack.sh "cd web && npx playwright test --grep-invert screenshots"
 
 screenshots:
-	cd web && npm run e2e -- --grep screenshots
+	./scripts/with-stack.sh "cd web && npx playwright test --grep screenshots"
+	$(RUN) python ../scripts/shrink_png.py ../docs/images
 
 # ---------------------------------------------------------------- combined
 
 install: backend-install $(if $(HAS_WEB),web-install)
 
-test: backend-test $(if $(HAS_WEB),web-typecheck web-test)
+test: backend-test $(if $(HAS_WEB),web-test web-typecheck web-e2e)
 
 dev:
 ifneq ($(HAS_WEB),)

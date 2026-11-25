@@ -6,7 +6,8 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { drag, login, projectId, token } from "./helpers";
 
-const MEDIA = fileURLToPath(new URL("../../data/media/", import.meta.url));
+const DATA = process.env.ANNOLAB_DATA_DIR ?? fileURLToPath(new URL("../../data", import.meta.url));
+const MEDIA = `${DATA}/media/`;
 const created: number[] = [];
 let admin = "";
 
@@ -28,7 +29,7 @@ async function freshProject(request: APIRequestContext, modality: string, file: 
   });
   created.push(p.id);
   const path = fs.readdirSync(MEDIA, { recursive: true }).map(String).find((f) => f.endsWith(file));
-  if (!path) throw new Error(`${file} not found under data/media; run make seed`);
+  if (!path) throw new Error(`${file} not found under the data dir; run make seed`);
   const up = await request.post(`/api/projects/${p.id}/items`, {
     headers: { Authorization: `Bearer ${admin}` },
     multipart: { files: { name: file, mimeType: mime, buffer: fs.readFileSync(MEDIA + path) } },
