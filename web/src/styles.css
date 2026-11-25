@@ -509,6 +509,7 @@ kbd {
   position: sticky;
   top: 0;
   z-index: 1;
+  white-space: nowrap;
 }
 .table td {
   padding: 6px var(--s3);
@@ -1044,6 +1045,12 @@ kbd {
 .ann-row .name {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.ann-row .ann-geom {
+  font-size: var(--fs-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1118,7 +1125,7 @@ kbd {
   margin: 0 auto;
   padding: var(--s8) var(--s6);
   font-size: 15px;
-  line-height: 2.6;
+  line-height: 2.4;
   color: var(--text);
   background: var(--bg-raised);
   min-height: 100%;
@@ -1212,4 +1219,7 @@ kbd {
   font-size: var(--fs-sm);
   padding: 3px 0;
   border-bottom: 1px solid var(--border);
+}
+.stage:focus-visible {
+  outline-offset: -2px;
 }
