@@ -458,6 +458,33 @@ export function AudioEditor(p: EditorProps) {
             />
           );
         })}
+        {/* In review, each annotator's segments shade the plot too; where two annotators agree the shading doubles. */}
+        {readOnly &&
+          ghosts.map((gl) =>
+            gl.anns
+              .filter((a) => a.geometry && "start" in a.geometry)
+              .map((a, i) => {
+                const g = a.geometry as Seg;
+                const x1 = t2x(g.start);
+                const x2 = t2x(g.end);
+                if (x2 < 0 || x1 > width) return null;
+                return (
+                  <div
+                    key={`band${gl.key}${i}`}
+                    style={{
+                      position: "absolute",
+                      left: x1,
+                      width: Math.max(1, x2 - x1),
+                      top: 0,
+                      bottom: 0,
+                      background: classColor(schema, a.schema_key, a.label, theme),
+                      opacity: 0.12,
+                      pointerEvents: "none",
+                    }}
+                  />
+                );
+              }),
+          )}
         {drag?.kind === "create" && activeClass && (
           <div
             style={{
