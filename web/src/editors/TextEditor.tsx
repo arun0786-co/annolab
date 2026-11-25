@@ -184,9 +184,9 @@ export function TextEditor(p: EditorProps) {
       {!readOnly && spanTool && (
         <div className="stage-hud" style={{ position: "sticky", left: 8, bottom: 8, width: "fit-content" }}>
           {activeClass ? (
-            <>
+            <span>
               Select text to tag as <strong style={{ color: "var(--text)" }}>{activeClass.name}</strong>. Click a tagged word to select; click again to cycle stacked spans.
-            </>
+            </span>
           ) : (
             "Pick a class to start tagging."
           )}
