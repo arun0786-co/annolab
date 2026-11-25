@@ -5,7 +5,7 @@ import { fmtBytes } from "../lib/format";
 import { Dialog } from "./Dialog";
 
 const FORMATS: { id: ExportFormat; name: string; desc: string; modalities: string[] }[] = [
-  { id: "coco", name: "COCO JSON", desc: "Images, categories and annotations (bbox, segmentation polygons, keypoints).", modalities: ["image"] },
+  { id: "coco", name: "COCO JSON", desc: "Images, categories, boxes and segmentation polygons. Points are not included.", modalities: ["image"] },
   { id: "yolo", name: "YOLO", desc: "Zip with one .txt per image (class cx cy w h, normalised) and classes.txt.", modalities: ["image"] },
   { id: "jsonl", name: "JSONL", desc: "One line per item with every annotation, review state and attributes. Works for all modalities.", modalities: ["image", "audio", "video", "text"] },
 ];
