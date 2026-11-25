@@ -1223,3 +1223,52 @@ kbd {
 .stage:focus-visible {
   outline-offset: -2px;
 }
+
+/* reviewer feedback in the labeling side panel */
+.feedback {
+  background: var(--bad-soft);
+}
+.feedback h3 {
+  color: var(--bad);
+}
+.feedback-note {
+  margin: 0 0 var(--s2);
+  white-space: pre-wrap;
+}
+.feedback-pins {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s1);
+}
+.feedback-pins .btn {
+  width: 100%;
+  height: auto;
+  justify-content: flex-start;
+  text-align: left;
+  align-items: flex-start;
+  gap: var(--s2);
+  padding: var(--s1) var(--s2);
+  white-space: normal;
+}
+.feedback-pins .btn:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.feedback-body {
+  flex: 1;
+  color: var(--text);
+}
+.pin-num {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+}

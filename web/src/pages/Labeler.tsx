@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
-import type { Annotation, ClassDef, Item, Project, Task } from "../api/types";
+import type { Annotation, ClassDef, Item, Project, Review, Task } from "../api/types";
 import { HelpButton, ThemeButton } from "../components/AppShell";
 import { Icon } from "../components/Icon";
 import { Empty, ErrorState, Loading } from "../components/States";
@@ -9,10 +9,10 @@ import { useAsync } from "../hooks/useAsync";
 import { useAutosave, type SaveState } from "../hooks/useAutosave";
 import { MOD_LABEL, useHotkeys } from "../hooks/useHotkeys";
 import { useMedia } from "../hooks/useMedia";
-import { normalizeSchema, STATUS_META, uid } from "../lib/format";
+import { fmtAgo, fmtClock, normalizeSchema, STATUS_META, uid } from "../lib/format";
 import { AnnotationList, AttributePanel, ClassPicker, Classifications, classHotkey, MODALITY_TOOLS, Rail, TOOL_KEY, toolHotkeys, Workspace } from "../editors/Panels";
 import { useAnnStore } from "../editors/store";
-import { toolFor, type Ann } from "../editors/types";
+import { toolFor, type Ann, type Pin } from "../editors/types";
 import { useSession, useShortcutGroups, useTheme, type ShortcutGroup } from "../state";
 
 /** /projects/:id/label asks the queue for the next task and redirects to it. */
@@ -215,6 +215,10 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
 
   useShortcutGroups(shortcutGroups(project.modality, tools.map((t) => [TOOL_KEY[t.type].toUpperCase(), t.name])));
 
+  // The latest review, if it sent this item back, is shown with its pinned comments.
+  const feedback: Review | null = task.reviews?.[0]?.decision === "reject" && task.status !== "submitted" ? task.reviews[0] : null;
+  const pins: Pin[] = (feedback?.comments ?? []).map((c, i) => ({ ...c, id: `r${c.id}`, index: i + 1 }));
+
   const commonProps = {
     item,
     media: media.url,
@@ -230,6 +234,7 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
     locked,
     edit,
     theme,
+    pins,
   };
 
   const selTool = selAnn ? toolFor(schema, selAnn.schema_key) : undefined;
@@ -276,6 +281,14 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
         )}
       </div>
       <aside className="side" aria-label="Labels and annotations">
+        {feedback && (
+          <ReviewerFeedback
+            review={feedback}
+            pins={pins}
+            text={project.modality === "text" ? String(item.meta.text ?? "") : undefined}
+            onPick={(pin) => pin.annotation_id != null && anns.some((a) => a.id === pin.annotation_id) && setSelected(`s${pin.annotation_id}`)}
+          />
+        )}
         <section>
           <h3>{tool ? tool.name : "Classes"}</h3>
           <ClassPicker tool={tool} active={activeClass} onPick={pickClass} theme={theme} />
@@ -329,6 +342,38 @@ function Labeler({ project, task, item, anns: initial }: Loaded) {
         </div>
       )}
     </div>
+  );
+}
+
+function ReviewerFeedback({ review, pins, text, onPick }: { review: Review; pins: Pin[]; text?: string; onPick: (p: Pin) => void }) {
+  const anchor = (p: Pin) => {
+    if (text !== undefined && p.t != null) return `char ${Math.round(p.t)}`;
+    if (p.t != null) return fmtClock(p.t);
+    if (p.x != null && p.y != null) return `${Math.round(p.x)}, ${Math.round(p.y)}`;
+    return "";
+  };
+  return (
+    <section className="feedback" aria-label="Reviewer feedback">
+      <h3>
+        Sent back by {review.reviewer?.name ?? "reviewer"} <span className="faint">{fmtAgo(review.created_at)}</span>
+      </h3>
+      {review.comment && <p className="feedback-note">{review.comment}</p>}
+      {pins.length > 0 && (
+        <ol className="feedback-pins">
+          {pins.map((p) => (
+            <li key={p.id}>
+              <button className="btn btn-ghost btn-sm" onClick={() => onPick(p)} disabled={p.annotation_id == null}>
+                <span className="pin-num" aria-hidden="true">
+                  {p.index}
+                </span>
+                <span className="feedback-body">{p.body}</span>
+                <span className="faint num">{p.annotation_id != null ? "on annotation" : anchor(p)}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   );
 }
 
