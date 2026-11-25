@@ -17,7 +17,7 @@ export const TOOL_KEY: Record<ToolType, string> = { bbox: "b", polygon: "p", poi
 export const MODALITY_TOOLS: Record<Modality, ToolType[]> = {
   image: ["bbox", "polygon", "point"],
   audio: ["segment"],
-  video: ["track"],
+  video: ["track", "segment"],
   text: ["span"],
 };
 
@@ -69,7 +69,7 @@ export function Rail({
           <Icon name="pan" />
         </button>
       )}
-      <hr />
+      {modality !== "text" && <hr />}
       {tools.map((t) => (
         <button
           key={t.key}
@@ -139,7 +139,7 @@ export function AttributePanel({ ann, tool, edit, readOnly }: { ann: Ann; tool: 
 }
 
 function AttrField({ def, value, onChange, readOnly }: { def: AttributeDef; value: unknown; onChange: (v: unknown) => void; readOnly?: boolean }) {
-  const label = def.name ?? def.key;
+  const label = def.name || def.key;
   if (def.type === "select")
     return (
       <label className="field">
@@ -277,11 +277,11 @@ export function AnnotationList({
           </span>
           <i className="swatch" style={{ background: classColor(schema, a.schema_key, a.label, theme) }} />
           <span className="name">
-            {className(schema, a.schema_key, a.label)}
-            {a.source === "model" && <span className="badge" style={{ marginLeft: 4, height: 16 }}>proposal</span>}
-          </span>
-          <span className="faint num" style={{ fontSize: 11 }}>
-            {describeGeometry(a, text)}
+            <span className="row" style={{ gap: 4 }}>
+              {className(schema, a.schema_key, a.label)}
+              {a.source === "model" && <span className="badge" style={{ height: 16, padding: "0 6px" }}>model</span>}
+            </span>
+            <span className="faint num ann-geom">{describeGeometry(a, text)}</span>
           </span>
           <button className="icon-btn" aria-pressed={hidden.has(a.cid)} aria-label={hidden.has(a.cid) ? "Show" : "Hide"} title="Hide (Shift+H)" onClick={(e) => (e.stopPropagation(), toggleHidden(a.cid))}>
             <Icon name={hidden.has(a.cid) ? "eyeOff" : "eye"} size={14} />
