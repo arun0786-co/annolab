@@ -502,7 +502,7 @@ export function AudioEditor(p: EditorProps) {
         )}
         <Playhead x={t2x(time)} />
         {(p.pins ?? []).filter((pin) => pin.t != null).map((pin) => (
-          <div key={pin.id} style={{ position: "absolute", left: t2x(pin.t!) - 9, top: 4, width: 18, height: 18, borderRadius: 9, background: "var(--accent)", color: "#fff", fontSize: 11, fontWeight: 600, display: "grid", placeItems: "center", pointerEvents: "none" }}>
+          <div key={pin.id} style={{ position: "absolute", left: t2x(pin.t!) - 9, top: 4, width: 18, height: 18, borderRadius: 9, background: "var(--accent-fill)", color: "#fff", fontSize: 11, fontWeight: 600, display: "grid", placeItems: "center", pointerEvents: "none" }}>
             {pin.index}
           </div>
         ))}

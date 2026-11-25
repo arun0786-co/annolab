@@ -38,6 +38,10 @@
   --accent-hover: #1d4ed8;
   --accent-soft: #e6eefd;
   --accent-text: #ffffff;
+  /* Fill behind white text, and text on --accent-soft; both pass 4.5:1 in each theme. */
+  --accent-fill: #2563eb;
+  --accent-fill-hover: #1d4ed8;
+  --accent-ink: #1d4ed8;
   --focus: #2563eb;
 
   --good: #0f7b3d;
@@ -71,6 +75,9 @@
     --accent-hover: #5b95f7;
     --accent-soft: #1b2a45;
     --accent-text: #ffffff;
+    --accent-fill: #2563eb;
+    --accent-fill-hover: #1d4ed8;
+    --accent-ink: #60a5fa;
     --focus: #60a5fa;
     --good: #4ec27f;
     --good-soft: #15291d;
@@ -102,6 +109,9 @@
   --accent-hover: #5b95f7;
   --accent-soft: #1b2a45;
   --accent-text: #ffffff;
+  --accent-fill: #2563eb;
+  --accent-fill-hover: #1d4ed8;
+  --accent-ink: #60a5fa;
   --focus: #60a5fa;
   --good: #4ec27f;
   --good-soft: #15291d;
@@ -159,7 +169,7 @@ p {
 }
 
 a {
-  color: var(--accent);
+  color: var(--accent-ink);
   text-decoration: none;
 }
 a:hover {
@@ -218,11 +228,11 @@ a:hover {
 }
 .btn-primary {
   color: var(--accent-text);
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
 }
 .btn-primary:hover {
-  background: var(--accent-hover);
+  background: var(--accent-fill-hover);
 }
 .btn-danger {
   color: var(--bad);
@@ -255,7 +265,7 @@ a:hover {
 .btn[aria-pressed="true"] {
   background: var(--accent-soft);
   border-color: var(--accent);
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 
 kbd {
@@ -572,7 +582,7 @@ kbd {
   border-color: transparent;
 }
 .badge-accent {
-  color: var(--accent);
+  color: var(--accent-ink);
   background: var(--accent-soft);
   border-color: transparent;
 }
@@ -752,7 +762,7 @@ kbd {
 }
 .demo-accounts button {
   font: inherit;
-  color: var(--accent);
+  color: var(--accent-ink);
   background: none;
   border: 0;
   padding: 0;
@@ -789,7 +799,7 @@ kbd {
 }
 .seg button[aria-pressed="true"] {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   font-weight: 500;
 }
 .modality {
@@ -934,7 +944,7 @@ kbd {
 }
 .rail .btn[aria-pressed="true"] {
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-ink);
   border-color: transparent;
 }
 .rail hr {
@@ -1072,7 +1082,7 @@ kbd {
   background: var(--bg-active);
 }
 .ann-row .icon-btn[aria-pressed="true"] {
-  color: var(--accent);
+  color: var(--accent-ink);
 }
 .save-status {
   display: inline-flex;
@@ -1201,7 +1211,7 @@ kbd {
   margin: -20px 0 0 -10px;
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
-  background: var(--accent);
+  background: var(--accent-fill);
   border: 2px solid var(--bg);
   pointer-events: none;
 }
@@ -1265,7 +1275,7 @@ kbd {
   width: 18px;
   height: 18px;
   border-radius: 9px;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: #fff;
   font-size: 11px;
   font-weight: 600;

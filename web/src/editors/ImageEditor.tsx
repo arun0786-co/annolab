@@ -332,7 +332,7 @@ export function ImageEditor(p: EditorProps) {
             const s = S(pin.x!, pin.y!);
             return (
               <g key={pin.id} pointerEvents="none">
-                <circle cx={s.x} cy={s.y - 12} r={9} fill="var(--accent)" stroke="var(--bg)" strokeWidth={2} />
+                <circle cx={s.x} cy={s.y - 12} r={9} fill="var(--accent-fill)" stroke="var(--bg)" strokeWidth={2} />
                 <text x={s.x} y={s.y - 8} textAnchor="middle" fontSize={11} fontWeight={600} fill="#fff">
                   {pin.index}
                 </text>
