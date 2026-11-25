@@ -37,10 +37,13 @@ def refresh_item_status(db: Session, item: Item) -> str:
     ).first()
     last_submit = max((t.submitted_at for t in submitted if t.submitted_at), default=None)
 
-    if last_review and last_review.decision == "reject" and active:
+    # A reopened task keeps its old submitted_at, which tells it apart from a fresh assignment.
+    reopened = [t for t in active if t.submitted_at is not None]
+    if last_review and last_review.decision == "reject" and reopened:
         status = "rejected"
-    elif last_review and last_submit and last_review.created_at >= last_submit and not active:
-        status = "approved" if last_review.decision == "approve" else "rejected"
+    elif (last_review and last_review.decision == "approve" and last_submit
+          and last_review.created_at >= last_submit and not active):
+        status = "approved"
     elif len(submitted) >= project.annotators_per_item and not active:
         status = "in_review" if project.review_required else "labeled"
     elif submitted or active:
@@ -118,6 +121,34 @@ def release_stale(db: Session, project: Project, now: datetime) -> int:
     return len(stale)
 
 
+def _check_bounds(c: dict[str, Any], meta: dict[str, Any]) -> None:
+    """Reject spans past the end of the text and segments past the end of the media."""
+    g = c["geometry"]
+    if not isinstance(g, dict) or "end" not in g:
+        return
+    if "text" in meta and isinstance(g["end"], int) and g["end"] > len(meta["text"]):
+        raise ValueError(f"span end {g['end']} is past the text length {len(meta['text'])}")
+    dur = meta.get("duration")
+    if "text" not in meta and dur and g["end"] > dur + 1e-3:
+        raise ValueError(f"segment end {g['end']:.3f} is past the duration {dur:.3f}")
+
+
+def close_user_tasks(db: Session, user: User, now: datetime | None = None) -> int:
+    """Mark a deactivated user's open tasks skipped so their items can be served again.
+
+    Unlike skip_task the annotations are kept for the record; only submitted tasks
+    feed consensus and export, so they do not count anywhere else.
+    """
+    tasks = db.scalars(select(Task).where(Task.user_id == user.id, Task.status.in_(OPEN))).all()
+    for t in tasks:
+        t.status = "skipped"
+        db.flush()
+        refresh_item_status(db, t.item)
+        audit.record(db, user.id, "task.release", "task", t.id, t.item.project_id,
+                     {"item_id": t.item_id, "reason": "user deactivated"}, at=now)
+    return len(tasks)
+
+
 def replace_annotations(
     db: Session, task: Task, payload: list[dict[str, Any]], time_spent_ms: int | None = None, now: datetime | None = None
 ) -> list[Annotation]:
@@ -127,12 +158,20 @@ def replace_annotations(
     if task.status == "skipped":
         raise WorkflowError(409, "task was skipped")
     schema = task.item.project.schema
+    meta = task.item.meta or {}
+    single = {c["key"] for c in schema.get("classifications", []) if c["type"] in ("radio", "text")}
+    answered: set[str] = set()
     cleaned = []
     for i, raw in enumerate(payload):
         try:
             c = validate_annotation(schema, raw)
+            _check_bounds(c, meta)
         except ValueError as e:
             raise WorkflowError(422, f"annotation {i}: {e}") from None
+        if c["schema_key"] in single:
+            if c["schema_key"] in answered:
+                raise WorkflowError(422, f"annotation {i}: {c['schema_key']!r} already has an answer")
+            answered.add(c["schema_key"])
         c["id"] = raw.get("id")
         c["source"] = raw.get("source") or "human"
         if c["source"] not in ("human", "model"):
@@ -220,6 +259,11 @@ def create_review(
         raise WorkflowError(409, "item has no submitted work to review")
     if any(t.status in OPEN for t in tasks):
         raise WorkflowError(409, "item still has open tasks")
+    if len(submitted) < item.project.annotators_per_item and item.status != "approved":
+        raise WorkflowError(409, f"item has {len(submitted)} of {item.project.annotators_per_item} submissions")
+    submitters = {t.user_id for t in submitted}
+    if decision == "reject" and reopen_user_ids and not set(reopen_user_ids) & submitters:
+        raise WorkflowError(422, "reopen_user_ids match no submitted task")
     ann_ids = {a.id: a for t in submitted for a in t.annotations}
     review = Review(item_id=item.id, reviewer_id=reviewer.id, decision=decision, comment=comment or "",
                     created_at=now or utcnow())
@@ -238,7 +282,7 @@ def create_review(
     db.flush()
     reopened = []
     if decision == "reject":
-        targets = set(reopen_user_ids or []) or pinned_users or {t.user_id for t in submitted}
+        targets = (set(reopen_user_ids) & submitters) if reopen_user_ids else (pinned_users or submitters)
         for t in submitted:
             if t.user_id in targets:
                 t.status = "in_progress"

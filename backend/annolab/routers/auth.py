@@ -9,6 +9,7 @@ from .. import schemas as S
 from ..deps import admin_only, current_user, get_db
 from ..models import User
 from ..security import create_token, hash_password, verify_password
+from ..services import close_user_tasks
 
 router = APIRouter(tags=["auth"])
 
@@ -68,6 +69,8 @@ def patch_user(user_id: int, body: S.UserPatch, actor: User = Depends(current_us
     if body.password:
         user.password_hash = hash_password(body.password)
         changed["password"] = "changed"
+    if body.active is False:
+        changed["released_tasks"] = close_user_tasks(db, user)
     audit.record(db, actor.id, "user.update", "user", user.id, payload=changed)
     db.commit()
     return user
