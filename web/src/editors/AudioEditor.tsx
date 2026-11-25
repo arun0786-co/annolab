@@ -61,7 +61,7 @@ function specImage(sp: Spectrogram, theme: "light" | "dark", maxBin: number): HT
   const img = g.createImageData(sp.frames, maxBin);
   const lut = ramp(theme);
   const ceil = sp.maxDb;
-  const floor = ceil - 80;
+  const floor = ceil - 60;
   for (let f = 0; f < sp.frames; f++)
     for (let b = 0; b < maxBin; b++) {
       const v = Math.round(clamp((sp.db[f * sp.bins + b] - floor) / (ceil - floor), 0, 1) * 255);
@@ -116,8 +116,8 @@ export function AudioEditor(p: EditorProps) {
   const specCanvas = useMemo(() => {
     if (!spec || !buf) return null;
     const nyq = buf.sampleRate / 2;
-    // Heart and lung sounds live below ~1 kHz; show up to 2 kHz when the rate allows.
-    const maxBin = Math.min(spec.bins, Math.ceil((Math.min(nyq, 2000) / nyq) * spec.bins));
+    // Heart and lung sounds live below ~1 kHz; show up to 1 kHz when the rate allows.
+    const maxBin = Math.min(spec.bins, Math.ceil((Math.min(nyq, 1000) / nyq) * spec.bins));
     return { img: specImage(spec, theme, maxBin), maxHz: (maxBin / spec.bins) * nyq };
   }, [spec, buf, theme]);
 
@@ -420,7 +420,7 @@ export function AudioEditor(p: EditorProps) {
         tabIndex={0}
         aria-label={`Audio ${display === "spec" ? "spectrogram" : "waveform"}, ${fmtClock(duration)} long. Space plays, brackets step 0.1 seconds.`}
       >
-        <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", color: "var(--accent)" }} />
+        <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", color: "var(--text-2)" }} />
         {display === "spec" && specCanvas && (
           <div className="stage-hud num" style={{ top: 6, bottom: "auto", left: "auto", right: 6 }}>
             0 to {Math.round(specCanvas.maxHz)} Hz
