@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 
 export function Loading({ label = "Loading" }: { label?: string }) {
@@ -35,7 +36,21 @@ export function Empty({ title, children, action }: { title: string; children?: R
 }
 
 export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => void }) {
-  const offline = error instanceof ApiError && error.offline;
+  const status = error instanceof ApiError ? error.status : -1;
+  const offline = status === 0;
+  if (status === 404 || status === 403) {
+    // Retrying cannot help here; send the person somewhere useful instead.
+    const msg = error.message.charAt(0).toUpperCase() + error.message.slice(1);
+    return (
+      <div className="state state-error" role="alert">
+        <h2>{status === 404 ? msg : "You do not have access to this"}</h2>
+        <p>{status === 404 ? "It may have been deleted, or the link is wrong." : msg}</p>
+        <Link className="btn" to="/">
+          Back to projects
+        </Link>
+      </div>
+    );
+  }
   return (
     <div className="state state-error" role="alert">
       <h2>{offline ? "Cannot reach the server" : "Something went wrong"}</h2>
