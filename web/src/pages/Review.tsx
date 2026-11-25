@@ -354,10 +354,10 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
             <label key={l.user_id} className="annotator-toggle">
               <input type="checkbox" checked={visible.has(l.user_id)} onChange={() => toggleLayer(l.user_id)} />
               <i className="swatch" style={{ background: annotatorColor(i, theme), borderRadius: 5 }} />
-              <span style={{ flex: 1 }}>{l.name}</span>
-              <span className="faint num" title="Mean agreement with the other annotators, and number of shapes">
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.name}</span>
+              <span className="faint num" style={{ fontSize: "var(--fs-xs)", whiteSpace: "nowrap" }} title="Mean agreement with the other annotators, and number of shapes">
                 {consensus?.per_annotator?.[String(l.user_id)] != null ? `agr ${fmtScore(consensus.per_annotator[String(l.user_id)])} · ` : ""}
-                {l.annotations.filter((a) => a.geometry).length} shapes
+                {nShapes(l)} {nShapes(l) === 1 ? "shape" : "shapes"}
               </span>
               {i < 9 && <kbd>{i + 1}</kbd>}
             </label>
@@ -490,6 +490,8 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
     </div>
   );
 }
+
+const nShapes = (l: Layer) => l.annotations.filter((a) => a.geometry).length;
 
 function anchorOf(a: Annotation): Anchor {
   const g = a.geometry as Record<string, unknown> | null;
