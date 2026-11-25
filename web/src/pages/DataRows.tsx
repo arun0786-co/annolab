@@ -70,8 +70,12 @@ export function DataRows() {
     setUpload({ busy: true });
     try {
       const r = await api.upload(project.id, files);
-      const n = Array.isArray(r) ? r.length : r.items.length;
-      setUpload({ busy: false, msg: `Added ${n} item${n === 1 ? "" : "s"}` });
+      const n = r.created.length;
+      setUpload({
+        busy: false,
+        msg: `Added ${n} item${n === 1 ? "" : "s"}${r.errors.length ? `, ${r.errors.length} rejected` : ""}`,
+        error: r.errors.length ? r.errors.map((e) => `${e.filename ?? "file"}: ${e.detail ?? "rejected"}`).join("; ") : undefined,
+      });
       res.reload();
     } catch (e) {
       setUpload({ busy: false, error: (e as Error).message });

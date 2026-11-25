@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import type { Modality, Project, ProjectStats } from "../api/types";
+import type { Modality } from "../api/types";
 import { Progress } from "../components/Charts";
 import { Dialog } from "../components/Dialog";
 import { Icon, MODALITY_ICON } from "../components/Icon";
@@ -12,13 +12,7 @@ import { fmtScore, STATUS_META } from "../lib/format";
 import { useSession, useShortcutGroups } from "../state";
 import { ITEM_STATUSES } from "../api/types";
 
-type Row = Project & { stats?: ProjectStats };
-
-async function load(): Promise<Row[]> {
-  const ps = await api.projects();
-  const stats = await Promise.allSettled(ps.map((p) => api.stats(p.id)));
-  return ps.map((p, i) => ({ ...p, stats: stats[i].status === "fulfilled" ? stats[i].value : undefined }));
-}
+const load = () => api.projects();
 
 export function Projects() {
   const { user } = useSession();
@@ -126,9 +120,9 @@ export function Projects() {
             </thead>
             <tbody>
               {rows.map((p, i) => {
-                const s = p.stats;
-                const total = s?.total ?? p.item_count ?? 0;
-                const done = s ? s.counts.labeled + s.counts.in_review + s.counts.approved : 0;
+                const c = p.status_counts ?? {};
+                const total = p.item_count ?? 0;
+                const done = (c.labeled ?? 0) + (c.in_review ?? 0) + (c.approved ?? 0);
                 return (
                   <tr key={p.id} aria-selected={i === cursor} onMouseEnter={() => setCursor(i)}>
                     <td>
@@ -145,18 +139,14 @@ export function Projects() {
                       </span>
                     </td>
                     <td>
-                      {s ? (
-                        <Progress
-                          label={ITEM_STATUSES.map((k) => `${STATUS_META[k].label} ${s.counts[k]}`).join(", ")}
-                          parts={ITEM_STATUSES.map((k) => ({ value: s.counts[k], color: STATUS_META[k].color }))}
-                        />
-                      ) : (
-                        <span className="faint">–</span>
-                      )}
+                      <Progress
+                        label={ITEM_STATUSES.map((k) => `${STATUS_META[k].label} ${c[k] ?? 0}`).join(", ")}
+                        parts={ITEM_STATUSES.map((k) => ({ value: c[k] ?? 0, color: STATUS_META[k].color }))}
+                      />
                     </td>
                     <td className="r">{total}</td>
                     <td className="r">{total ? `${Math.round((done / total) * 100)}%` : "–"}</td>
-                    <td className="r">{fmtScore(s?.agreement.mean ?? p.agreement)}</td>
+                    <td className="r">{fmtScore(p.agreement)}</td>
                     <td className="r">{p.annotators_per_item}x</td>
                     <td className="r">
                       <Link className="btn btn-sm" to={`/projects/${p.id}/label`} tabIndex={-1}>
