@@ -59,7 +59,7 @@ export function SchemaEditor() {
     const n = schema.tools.length + 1;
     setSchema((s) => ({
       ...s,
-      tools: [...s.tools, { key: `${type}_${n}`, type, name: `${TOOL_NAMES[type]} ${n}`, classes: [{ value: "class_1", name: "Class 1", color: PALETTE_LIGHT[0], hotkey: "1" }], attributes: [] }],
+      tools: [...s.tools, { key: `${type}_${n}`, type, name: `${TOOL_NAMES[type]} ${n}`, classes: [{ value: "class_1", name: "Class 1", color: nextColor(s.tools.flatMap((x) => x.classes.map((c) => c.color))), hotkey: "1" }], attributes: [] }],
     }));
   };
 
@@ -124,6 +124,7 @@ export function SchemaEditor() {
                 key={i}
                 tool={t}
                 allowed={allowed}
+                usedColors={schema.tools.flatMap((x) => x.classes.map((c) => c.color))}
                 onChange={(fn) => upTool(i, fn)}
                 onRemove={() => setSchema((s) => ({ ...s, tools: s.tools.filter((_, j) => j !== i) }))}
               />
@@ -207,7 +208,17 @@ function splitList(s: string) {
     .filter(Boolean);
 }
 
-function ToolEditor({ tool, allowed, onChange, onRemove }: { tool: ToolDef; allowed: ToolType[]; onChange: (fn: (t: ToolDef) => ToolDef) => void; onRemove: () => void }) {
+function ToolEditor({
+  tool,
+  allowed,
+  usedColors,
+  onChange,
+  onRemove,
+}: {
+  tool: ToolDef;
+  allowed: ToolType[];
+  usedColors: string[];
+  onChange: (fn: (t: ToolDef) => ToolDef) => void; onRemove: () => void }) {
   const upClass = (i: number, patch: Partial<ClassDef>) => onChange((t) => ({ ...t, classes: t.classes.map((c, j) => (j === i ? { ...c, ...patch } : c)) }));
   const upAttr = (i: number, patch: Partial<AttributeDef>) => onChange((t) => ({ ...t, attributes: (t.attributes ?? []).map((a, j) => (j === i ? { ...a, ...patch } : a)) }));
   return (
@@ -260,7 +271,7 @@ function ToolEditor({ tool, allowed, onChange, onRemove }: { tool: ToolDef; allo
             onClick={() =>
               onChange((t) => {
                 const n = t.classes.length + 1;
-                return { ...t, classes: [...t.classes, { value: `class_${n}`, name: `Class ${n}`, color: nextColor(t.classes.map((c) => c.color)), hotkey: n <= 9 ? String(n) : undefined }] };
+                return { ...t, classes: [...t.classes, { value: `class_${n}`, name: `Class ${n}`, color: nextColor(usedColors), hotkey: n <= 9 ? String(n) : undefined }] };
               })
             }
           >

@@ -42,6 +42,22 @@ describe("validateSchema", () => {
   });
 });
 
+describe("colour reuse", () => {
+  const two = (a: string, b: string, colB: string): Schema => ({
+    tools: [
+      { key: "box", type: "bbox", name: "Box", classes: [{ value: a, name: a, color: "#257de0" }] },
+      { key: "outline", type: "polygon", name: "Outline", classes: [{ value: b, name: b, color: colB }] },
+    ],
+    classifications: [],
+  });
+  it("warns when different classes in different tools share a colour", () => {
+    expect(validateSchema(two("car", "dog", "#257de0"), "image").map((i) => i.msg)).toContain("Outline: dog shares a colour with car");
+  });
+  it("allows the same class to keep its colour across tools", () => {
+    expect(validateSchema(two("car", "car", "#257de0"), "image")).toEqual([]);
+  });
+});
+
 describe("slug", () => {
   it("makes keys", () => {
     expect(slug("Heart sounds (PCG)")).toBe("heart_sounds_pcg");

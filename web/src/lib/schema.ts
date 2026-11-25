@@ -5,7 +5,7 @@ import { contrast, PALETTE_LIGHT, SURFACE_DARK, SURFACE_LIGHT, displayColor } fr
 const ALLOWED: Record<Modality, string[]> = {
   image: ["bbox", "polygon", "point"],
   audio: ["segment"],
-  video: ["track"],
+  video: ["track", "segment"],
   text: ["span"],
 };
 
@@ -24,6 +24,8 @@ export function validateSchema(s: Schema, modality: Modality): Issue[] {
     if (keys.has(k)) out.push({ level: "error", path, msg: `Key "${k}" is used twice` });
     keys.add(k);
   };
+  // colour -> class value, across the whole schema: one hue per concept, whatever the tool.
+  const colorOwner = new Map<string, string>();
   if (!s.tools.length && !s.classifications.length) out.push({ level: "warn", path: "", msg: "Add at least one tool or classification" });
   s.tools.forEach((t, ti) => {
     const p = `tools.${ti}`;
@@ -34,7 +36,6 @@ export function validateSchema(s: Schema, modality: Modality): Issue[] {
     if (!t.classes.length) out.push({ level: "warn", path: p, msg: `${t.name || "Tool"} has no classes` });
     const values = new Set<string>();
     const hotkeys = new Set<string>();
-    const colors = new Set<string>();
     t.classes.forEach((c, ci) => {
       const cp = `${p}.classes.${ci}`;
       if (!c.value.trim()) out.push({ level: "error", path: cp, msg: `${t.name}: class ${ci + 1} needs a value` });
@@ -46,8 +47,10 @@ export function validateSchema(s: Schema, modality: Modality): Issue[] {
         hotkeys.add(c.hotkey);
       }
       const col = c.color.toLowerCase();
-      if (colors.has(col)) out.push({ level: "warn", path: cp, msg: `${t.name}: ${c.name} shares a colour with another class` });
-      colors.add(col);
+      const owner = colorOwner.get(col);
+      if (owner !== undefined && owner !== c.value)
+        out.push({ level: "warn", path: cp, msg: `${t.name}: ${c.name} shares a colour with ${owner}` });
+      if (owner === undefined) colorOwner.set(col, c.value);
       if (!/^#[0-9a-f]{6}$/i.test(c.color)) out.push({ level: "error", path: cp, msg: `${t.name}: ${c.name} colour must be #rrggbb` });
       else if (!PALETTE_LIGHT.includes(col)) {
         const cl = contrast(c.color, SURFACE_LIGHT);
