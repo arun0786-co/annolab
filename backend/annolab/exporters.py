@@ -8,11 +8,12 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
+from shapely.geometry import box
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .consensus import best_annotator, item_consensus
-from .geometry import bounds, polygon_area
+from .geometry import _poly, bounds, polygon_area
 from .models import Item, Project, Review, Task, User
 from .serialize import public_meta
 from .services import ann_dict
@@ -62,6 +63,31 @@ def _tool_types(project: Project) -> dict[str, str]:
     return {t["key"]: t["type"] for t in project.schema.get("tools", [])}
 
 
+def _clip(kind: str, g: dict[str, Any], W: float | None, H: float | None):
+    """Clip a box or polygon to the image, as YOLO does. Returns (bbox, segmentation, area) or None if nothing is left."""
+    x, y, w, h = bounds(kind, g)
+    if not W or not H or (x >= 0 and y >= 0 and x + w <= W and y + h <= H):
+        if kind == "polygon":
+            pts = g["points"]
+            return [x, y, w, h], [[c for p in pts for c in p]], polygon_area(pts)
+        return [x, y, w, h], [[x, y, x + w, y, x + w, y + h, x, y + h]], w * h
+    if kind == "polygon":
+        shape = _poly(g["points"])
+    else:
+        shape = box(x, y, x + w, y + h)
+    if W and H:
+        shape = shape.intersection(box(0, 0, float(W), float(H)))
+    parts = [p for p in getattr(shape, "geoms", [shape]) if p.geom_type == "Polygon" and p.area > 0]
+    if not parts:
+        return None
+    x0, y0, x1, y1 = shape.bounds
+    if kind == "polygon":
+        seg = [[round(c, 3) for xy in p.exterior.coords[:-1] for c in xy] for p in parts]
+    else:
+        seg = [[x0, y0, x1, y0, x1, y1, x0, y1]]
+    return [x0, y0, x1 - x0, y1 - y0], seg, sum(p.area for p in parts)
+
+
 def export_coco(db: Session, project: Project, status: str = "done", annotator: str = "best") -> dict[str, Any]:
     if project.modality != "image":
         raise ExportError("COCO export is for image projects; use jsonl")
@@ -73,21 +99,17 @@ def export_coco(db: Session, project: Project, status: str = "done", annotator: 
         sets = _chosen_sets(db, project, item, annotator)
         if not sets:
             continue
-        images.append({"id": item.id, "file_name": item.filename,
-                       "width": item.meta.get("width"), "height": item.meta.get("height")})
+        W, H = item.meta.get("width"), item.meta.get("height")
+        images.append({"id": item.id, "file_name": item.filename, "width": W, "height": H})
         for uid, lst in sets.items():
             for a in lst:
                 kind = types.get(a["schema_key"])
                 if kind not in SPATIAL or a["label"] not in cat_id:
                     continue
-                x, y, w, h = bounds(kind, a["geometry"])
-                if kind == "polygon":
-                    pts = a["geometry"]["points"]
-                    seg = [[c for p in pts for c in p]]
-                    area = polygon_area(pts)
-                else:
-                    seg = [[x, y, x + w, y, x + w, y + h, x, y + h]]
-                    area = w * h
+                clipped = _clip(kind, a["geometry"], W, H)
+                if clipped is None:
+                    continue
+                (x, y, w, h), seg, area = clipped
                 anns.append({
                     "id": len(anns) + 1, "image_id": item.id, "category_id": cat_id[a["label"]],
                     "bbox": [x, y, w, h], "area": area, "segmentation": seg, "iscrowd": 0,
