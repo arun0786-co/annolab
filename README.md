@@ -40,7 +40,7 @@ All screenshots are taken by `make screenshots` (Playwright, 1440x900) on freshl
 
 One editor shell serves all four modalities: tool rail on the left, canvas in the middle, classes, attributes, classifications and the annotation list on the right, save status, timer, undo/redo, skip and submit on top. Autosave runs 700 ms after the last change and before submit.
 
-**Audio.** Waveform or spectrogram (both computed in the browser), zoom, playhead, drag to create a segment, playback speed. *Propose* asks the server's energy-based detector for S1/S2 candidates (dashed); `A` accepts one, `Shift+A` all of them, and new segments snap to proposal edges.
+**Audio.** Waveform or spectrogram (both computed in the browser), zoom, playhead, drag to create a segment, playback speed. *Propose* asks the server's energy-based detector for S1/S2 candidates (dashed); `A` accepts one, `Shift+A` all of them, `N` and `Shift+N` step through segments, and new segments snap to proposal edges.
 
 ![Audio editor with model proposals](docs/images/label-audio.png)
 
@@ -50,7 +50,7 @@ One editor shell serves all four modalities: tool rail on the left, canvas in th
 
 ![Video editor with a box track](docs/images/label-video.png)
 
-**Text.** Select words to create a span. Overlapping spans stack as separate underlines (here a finding span over a body site).
+**Text.** Select words to create a span. Overlapping spans stack as separate underlines (here a symptom span over a body site).
 
 ![Text editor with overlapping spans](docs/images/label-text.png)
 
@@ -60,7 +60,7 @@ One editor shell serves all four modalities: tool rail on the left, canvas in th
 
 ### Review
 
-Each annotator's work is an overlay that can be toggled with `1`-`9`. The consensus diff lists matched pairs with their overlap, label conflicts and unmatched annotations. `C` pins a comment to a point, a time or an annotation; reject requires a comment.
+Each annotator's work is an overlay that can be toggled with `1`-`9`, drawn in that annotator's colour or, with one switch, in the class colours. The consensus diff lists matched pairs with their overlap, label conflicts and unmatched annotations, each with its location (time range, quoted text or box size and position); clicking a row selects that annotation and brings it into view. `C` pins a comment to a point, a time or an annotation; reject requires a comment.
 
 ![Reviewing an image](docs/images/review-image.png)
 
@@ -158,16 +158,16 @@ make eval-prelabel # pre-label precision and recall on the seeded data
 
 All from commands run on the development machine (Apple silicon laptop).
 
-**Tests** (`make test`, exit 0, 51.5 s wall time in total):
+**Tests** (`make test`, exit 0, 58 s wall time in total):
 
 | Suite | Result | Needs a server? |
 |---|---|---|
-| Backend pytest (`cd backend && uv run pytest`) | 132 passed in 17.62 s | No, in-process TestClient with a temp database per test |
-| Web unit tests (`vitest run`) | 8 files, 57 tests passed | No |
+| Backend pytest (`cd backend && uv run pytest`) | 145 passed in 19.16 s | No, in-process TestClient with a temp database per test |
+| Web unit tests (`vitest run`) | 9 files, 61 tests passed | No |
 | Typecheck (`tsc --noEmit`) | clean | No |
-| Playwright e2e | 6 passed (28.7 s) | Starts its own via `with-stack.sh` |
+| Playwright e2e | 11 passed (33.6 s) | Starts its own via `with-stack.sh` |
 
-The e2e specs cover: an admin creating a project, editing its schema, uploading files; an annotator labeling an image (box with a class) and an audio segment and submitting; a reviewer rejecting with a pinned comment; the annotator seeing that comment, moving the box and resubmitting; the reviewer approving; the admin downloading COCO and the test checking its contents; and a crawl of every screen as each role that fails on any console error or failed API call.
+The e2e specs cover: an admin creating a project, editing its schema, uploading files; an annotator labeling an image (box with a class) and an audio segment and submitting; a reviewer rejecting with a pinned comment; the annotator seeing that comment, moving the box and resubmitting; the reviewer approving; the admin downloading COCO and the test checking its contents; a crawl of every screen as each role that fails on any console error or failed API call; and keyboard checks that Tab moves focus out of every editor and that a missing project offers a link back.
 
 **Pre-labels** (`make eval-prelabel`, matched at IoU >= 0.5):
 
@@ -179,27 +179,27 @@ The e2e specs cover: an admin creating a project, editing its schema, uploading 
 
 The shape scenes have flat backgrounds, so the image detector is close to perfect there; on the photos it only gives rough boxes. The heart sounds are synthetic, with known onsets.
 
-**Seeded agreement** (project list): heart sounds 0.66, objects and shapes 0.69, gait clips 0.79, clinical notes 0.86 (mean pairwise F1 over items with two or more annotators).
+**Seeded agreement** (project list): heart sounds 0.66, objects and shapes 0.69, gait clips 0.79, clinical notes 0.86. Each is the mean, over items with two or more annotators, of the pairwise agreement scores of every tool and classification on the item: F1 for shapes, 1/0 for radio and Jaccard for checklist classifications. Per-tool F1 alone is lower for some projects, for example heart-sound segments 0.613 against the project figure 0.66 (`GET /projects/{id}/stats`).
 
 **Other:**
 
 - `make seed`: 1.2 s for 4 projects, 54 items, 101 tasks, 1,029 annotations and 15 reviews.
 - Production build (`npm run build`): JS 317.79 kB (101.16 kB gzip), CSS 19.19 kB (4.35 kB gzip). Runtime dependencies: react, react-dom, react-router-dom.
-- `make screenshots`: 3 tests passed in 26.5 s (31.9 s including stack start and PNG shrinking); 18 PNGs, the largest 386,647 bytes.
+- `make screenshots`: 3 tests passed in 26.7 s (32 s including stack start and PNG shrinking); 18 PNGs, the largest 394,563 bytes.
 
 ## Compared with the course project it replaces
 
-annolab replaces a course team project for the same domain (clinical heart and lung sounds, images, video). No code was copied; only the domain carried over. Line counts are `git ls-files` + `wc -l` in each repository, excluding lock files and media.
+annolab replaces a course team project for the same domain (clinical heart and lung sounds, images, video). No code was copied; only the domain carried over. Line counts are `git ls-files` + `wc -l` in each repository, excluding lock files, build configs and media; tests are counted separately.
 
 | | Course project | annolab |
 |---|---|---|
-| Backend source | 6,552 lines of Python (FastAPI + MongoDB) | 3,904 lines of Python (FastAPI + SQLite) |
-| Frontend source | 21,675 lines of JS/JSX + 2,621 CSS | 7,168 lines of TS/TSX + 1,297 CSS |
-| Backend tests | 376 test functions in 14 files (3,909 lines), all calling `http://localhost:8000` through httpx, so a running server and database are required | 132 tests (1,423 lines), in-process with a temp database |
-| Frontend tests | none | 57 unit tests and 6 Playwright e2e tests, both started by `make test` |
+| Backend source | 6,552 lines of Python (FastAPI + MongoDB) | 3,995 lines of Python (FastAPI + SQLite) |
+| Frontend source | 21,675 lines of JS/JSX + 2,621 CSS | 7,293 lines of TS/TSX + 1,327 CSS |
+| Backend tests | 376 test functions in 14 files plus `conftest.py` (3,909 lines), run through httpx against a live server (`API_URL`, default `http://localhost:8000`), so a running server and database are required | 145 tests (1,577 lines), in-process with a temp database |
+| Frontend tests | none | 61 unit tests and 11 Playwright e2e tests, both started by `make test` |
 | Editor architecture | a separate workspace component per modality (`SoundAnnotatorWorkspace`, `ImageAnnotatorWorkspace`, `VideoAnnotatorWorkspace`, `TextAnnotatorWorkspace`) plus hand-written panels per label type (heart, respiratory, blood pressure) | one labeler shell and one annotation model; tools, classes and attributes come from the project schema |
-| Agreement and review | no agreement metrics | IoU and temporal IoU matching, Cohen and Fleiss kappa, comments pinned to annotations |
-| Export | (not compared) | COCO, YOLO, JSONL |
+| Agreement and review | reviewer workspace with approve/reject; its "Inter-Annotator Agreement" chart shows fixed placeholder values (85/15), nothing is computed | IoU and temporal IoU matching, Cohen and Fleiss kappa, consensus diff per item, comments pinned to annotations |
+| Export | CSV and JSON per dataset (heart, respiratory and blood-pressure fields), audit log as CSV | COCO, YOLO (zip), JSONL for every modality |
 
 ## Further reading
 

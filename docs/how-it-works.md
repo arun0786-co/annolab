@@ -99,7 +99,7 @@ On the server, `services.replace_annotations` treats the request as the task's c
 - entries with an `id` that belongs to this task update that row; entries without one become new rows; rows not mentioned are deleted;
 - `time_spent_ms` only grows.
 
-Sending the whole set makes the client simple (no diffing, no ordering problems between saves) and the request is idempotent: saving the same list twice gives the same result. Keeping ids is what lets review comments stay attached to an annotation after the annotator edits it. The e2e review-cycle test checks this: the annotator moves the box the reviewer commented on, and the test asserts the annotation id did not change.
+Sending the whole set makes the client simple (no diffing, no ordering problems between saves) and the request is idempotent in content: saving the same list twice gives the same annotations. Rows without an id are new rows each time, though, and the editor does not yet read ids back from the response, so an annotation drawn in this session gets a fresh id on every autosave until the item is reloaded. Keeping ids is what lets review comments stay attached to an annotation after the annotator edits it. The e2e review-cycle test checks this: the annotator moves the box the reviewer commented on, and the test asserts the annotation id did not change.
 
 ## 4. Submitting and review
 

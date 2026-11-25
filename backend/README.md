@@ -46,8 +46,8 @@ Settings come from the environment: `ANNOLAB_DATA_DIR` (default `../data`), `ANN
 
 Commands and output from the last run:
 
-- `make backend-test`: `132 passed in 35.28s`
-- `make seed`: `seeded .../data in 2.7 s`
+- `make test` (backend part): `145 passed in 19.16s`
+- `make seed`: `seeded .../data in 1.2 s`
   - Heart sound segmentation (audio): 12 items (approved 5, in_progress 3, in_review 3, rejected 1); 21 tasks, 426 annotations, 6 reviews
   - Objects and shapes (image): 16 items (approved 3, in_progress 2, labeled 8, rejected 1, unlabeled 2); 39 tasks, 335 annotations, 4 reviews
   - Gait clips (video): 6 items (approved 2, in_progress 1, in_review 2, unlabeled 1); 9 tasks, 44 annotations, 2 reviews

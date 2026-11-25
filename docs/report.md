@@ -45,7 +45,7 @@ The schema decides which tools a project has. Adding a label type means editing 
 
 ### 2.2 SQLite, in-process tests, no services
 
-The backend is FastAPI with SQLAlchemy 2 on a single SQLite file. A labeling team of a few dozen people produces far fewer writes than SQLite handles. One file means no database server to start, and the tests can create a fresh database per test in a temp folder. All 132 backend tests run in-process with FastAPI's TestClient (`make backend-test`: `132 passed in 17.62s`).
+The backend is FastAPI with SQLAlchemy 2 on a single SQLite file. A labeling team of a few dozen people produces far fewer writes than SQLite handles. One file means no database server to start, and the tests can create a fresh database per test in a temp folder. All 145 backend tests run in-process with FastAPI's TestClient (`make test`: `145 passed in 19.16s`).
 
 ### 2.3 Status is derived, never set by hand
 
@@ -104,7 +104,7 @@ For each tool and each pair of annotators A and B:
 
    which is the F1 score of one set against the other. The mean IoU of the matched pairs is reported next to it.
 
-Item agreement is the mean over tools and pairs; project agreement is the mean over items with at least two annotators.
+Item agreement is the mean of all pair scores on the item, over geometric tools and classifications together (F1 for shapes, 1/0 for radio and Jaccard for checklist classifications, see 4.2); project agreement is the mean over items with at least two annotators. It therefore differs from the per-tool F1 in the table below: heart sounds score 0.613 on segments but 0.66 overall.
 
 ### 4.2 Classifications
 
@@ -156,7 +156,7 @@ The tests run the queue from 12 and 9 threads at once and from 8 threads for one
 
 **Autosave.** `PUT /tasks/{id}/annotations` replaces the task's whole set. Entries that carry an existing `id` keep it; entries left out are deleted. The whole request is validated before anything is written. Keeping ids matters for review: a reviewer's comment pinned to an annotation still points at the same box after the annotator moves it and the editor saves again.
 
-**Review.** Approve or reject an item once all its tasks are submitted. A reject reopens only the tasks of annotators whose annotations carry pinned comments (or the ones listed in `reopen_user_ids`, or everyone if nothing was pinned). Those annotators get the item back first from the queue, with the review attached, and see the comments as numbered pins.
+**Review.** Approve or reject an item once all its tasks are submitted and it has as many submissions as the project asks for (409 otherwise). A reject reopens only the tasks of annotators whose annotations carry pinned comments (or the ones listed in `reopen_user_ids`, which must include at least one submitter, or everyone if nothing was pinned). If a reopened annotator skips instead of fixing, the item drops back to `in_progress` and the free slot goes to someone else, so an item cannot get stuck as `rejected` with nobody to work on it. Deactivating a user releases their open tasks the same way. Those annotators get the item back first from the queue, with the review attached, and see the comments as numbered pins.
 
 ![Annotator view of rejected work with a pinned comment](images/label-feedback.png)
 
@@ -185,7 +185,7 @@ The seed data is synthetic with known ground truth, so the proposals can be scor
 | Heart sounds, label ignored | 240 / 237 | 0.966 | 0.954 | | |
 | Shape scenes, 10 images | 42 / 42 | 1.000 | 1.000 | 0.962 | |
 
-These numbers are an upper bound. The heart sounds are generated at 25 dB SNR with a regular rhythm, and the shape scenes have flat backgrounds. On the scikit-image photos the image method only gives rough boxes, and on real recordings with arrhythmia the S1/S2 rule will mislabel beats.
+These numbers are an upper bound. The heart sounds are generated at 10-18 or 22-30 dB SNR (each recording draws the noisy range with probability 0.35; 2 of the 12 seeded recordings are in it, at 14.7 and 15.3 dB) with a near-regular rhythm (each beat interval within 3% of the mean), and the shape scenes have flat backgrounds. On the scikit-image photos the image method only gives rough boxes, and on real recordings with arrhythmia the S1/S2 rule will mislabel beats.
 
 ![Audio editor with dashed model proposals](images/label-audio.png)
 
@@ -193,18 +193,18 @@ These numbers are an upper bound. The heart sounds are generated at 25 dB SNR wi
 
 ### 7.1 Tests
 
-`make test` runs everything below and exited 0 in 51.5 s wall time.
+`make test` runs everything below and exited 0 in 58 s wall time.
 
 | Suite | Command | Result |
 |---|---|---|
-| Backend | `cd backend && uv run pytest` | 132 passed in 17.62 s |
-| Web unit | `vitest run` | 8 files, 57 tests passed |
+| Backend | `cd backend && uv run pytest` | 145 passed in 19.16 s |
+| Web unit | `vitest run` | 9 files, 61 tests passed |
 | Typecheck | `tsc --noEmit` | clean |
-| End to end | Playwright via `scripts/with-stack.sh` | 6 passed (28.7 s) |
+| End to end | Playwright via `scripts/with-stack.sh` | 11 passed (33.6 s) |
 
-The backend tests cover auth, a 22-row role matrix, schema validation, the queue (including the three concurrency tests), autosave, the review cycle with pinned comments, consensus math against hand-worked values, exports (COCO loaded with pycocotools, YOLO zip contents, JSONL parsed), media with HTTP Range, pre-label precision and recall on synthetic data, stats, activity, and a small seed build.
+The backend tests cover auth, a 22-row role matrix, schema validation, the queue (including the three concurrency tests), autosave, the review cycle with pinned comments and its edge cases (stuck rejects, too few submissions, schema edits that would orphan attribute values, deactivated users), consensus math against hand-worked values, exports (COCO loaded with pycocotools, YOLO zip contents, JSONL parsed), media with HTTP Range, pre-label precision and recall on synthetic data, stats, activity, and a small seed build.
 
-The web unit tests cover geometry (IoU, hit testing, resize, zoom), track interpolation, the undo stack, span layout, palette contrast, the FFT, spectrogram and onset detection, annotation matching and schema validation.
+The web unit tests cover geometry (IoU, hit testing, resize, zoom), track interpolation, the undo stack, span layout, palette contrast, the FFT, spectrogram and onset detection, annotation matching, schema validation and duration formatting.
 
 The Playwright specs run against a throwaway stack: a freshly seeded data dir in a temp folder and the API and Vite on free ports. They never touch `data/`. They cover:
 
@@ -213,11 +213,12 @@ The Playwright specs run against a throwaway stack: a freshly seeded data dir in
 - a reviewer rejecting with a comment pinned to the box;
 - the annotator seeing that comment, fixing the box and resubmitting, and the reviewer approving;
 - the admin exporting COCO, with the test checking the file's images, annotations and categories;
-- a crawl of every screen and editor as each role that fails on any console error or failed API call.
+- a crawl of every screen and editor as each role that fails on any console error or failed API call;
+- keyboard checks that Tab moves focus out of each of the four editors, and that a missing project shows "Project not found" with a link back and no Retry.
 
 ### 7.2 Screens
 
-`make screenshots` takes 18 PNGs at 1440x900 from freshly seeded data (3 Playwright tests passed in 26.5 s); the largest is 386,647 bytes. Each one was opened and checked for overlap, clipping, empty panels and contrast.
+`make screenshots` takes 18 PNGs at 1440x900 from freshly seeded data (3 Playwright tests passed in 26.7 s); the largest is 394,563 bytes. Each one was opened and checked for overlap, clipping, empty panels and contrast.
 
 ![Reviewing audio: two annotators' segments, consensus diff and a pinned comment](images/review-audio.png)
 
@@ -233,16 +234,17 @@ The Playwright specs run against a throwaway stack: a freshly seeded data dir in
 
 ### 7.4 Compared with the course project
 
-Line counts are `git ls-files` + `wc -l` in each repository, excluding lock files, build configs and media.
+Line counts are `git ls-files` + `wc -l` in each repository, excluding lock files, build configs and media; tests are counted separately.
 
 | | Course project | annolab |
 |---|---|---|
-| Backend source | 6,552 lines of Python (FastAPI + MongoDB) | 3,904 lines of Python (FastAPI + SQLite) |
-| Frontend source | 21,675 lines of JS/JSX + 2,621 CSS | 7,168 lines of TS/TSX + 1,297 CSS |
-| Backend tests | 376 test functions in 14 files (3,909 lines); `conftest.py` sends every request to `http://localhost:8000`, so a running server and database are required | 132 tests (1,423 lines), in-process with a temp database |
-| Frontend tests | none | 57 unit tests and 6 Playwright tests, started by `make test` |
+| Backend source | 6,552 lines of Python (FastAPI + MongoDB) | 3,995 lines of Python (FastAPI + SQLite) |
+| Frontend source | 21,675 lines of JS/JSX + 2,621 CSS | 7,293 lines of TS/TSX + 1,327 CSS |
+| Backend tests | 376 test functions in 14 files plus `conftest.py` (3,909 lines), run against a live server (`API_URL`, default `http://localhost:8000`), so a running server and database are required | 145 tests (1,577 lines), in-process with a temp database |
+| Frontend tests | none | 61 unit tests and 11 Playwright tests, started by `make test` |
 | Editor architecture | one workspace component per modality (`SoundAnnotatorWorkspace`, `ImageAnnotatorWorkspace`, `VideoAnnotatorWorkspace`, `TextAnnotatorWorkspace`) plus hand-written panels per label type | one labeler shell and one annotation model; tools, classes and attributes come from the schema |
-| Agreement | none | IoU-based matching per tool, Cohen and Fleiss kappa |
+| Agreement and review | reviewer workspace with approve/reject; the agreement chart shows fixed placeholder values (85/15), nothing is computed | IoU-based matching per tool, Cohen and Fleiss kappa, consensus diff per item |
+| Export | CSV and JSON per dataset, audit log as CSV | COCO, YOLO, JSONL |
 
 The course project has more backend tests by count, but they exercise a live deployment and leave data behind (one file, `test_99_cleanup.py`, exists to clean up). annolab's tests are fewer and each one starts from an empty database.
 
@@ -253,6 +255,7 @@ The course project has more backend tests by count, but they exercise a live dep
 - **Text spans** are created with the mouse; the keyboard can only adjust them afterwards (Shift+Arrows).
 - **Long audio** (minutes) is untested. The waveform and spectrogram are computed on the main thread, and the spectrogram is capped at about 3000 frames.
 - **Review diff** compares the first two visible annotators only.
+- **Autosave ids**: the editor does not read the ids back from the save response. Annotations created in the browser therefore have no server id until the item is reloaded, and each autosave until then deletes and recreates their rows with new ids. Annotations that were loaded from the server keep their ids, which is what review pins rely on.
 - **Exports**: COCO and YOLO are for image projects only; polygons become boxes in YOLO and points are not exported to COCO. Audio, video and text export as JSONL.
 - **Pre-labels** exist only for audio and images, and their accuracy is measured on synthetic data only (section 6.3).
 - **Throughput** on the overview is not filtered by date range.

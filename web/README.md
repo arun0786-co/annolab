@@ -42,7 +42,7 @@ The review page renders the same editors read-only, with each annotator's set as
 
 ## Colour
 
-Class colours default to an eight-slot categorical palette (`lib/palette.ts`) with a separate step per theme. The order was checked for colour-vision-deficiency separation on adjacent slots in both themes; `palette.test.ts` records each slot's contrast against both surfaces. Four light-mode slots sit under 3:1 on white, so class names are always drawn as text next to the colour (on-canvas tags, class list, legends). Chip text picks black or white per colour and reaches 4.5:1 on every slot. The schema editor warns about custom colours under 2:1 in either theme.
+Class colours default to an eight-slot categorical palette (`lib/palette.ts`) with a separate step per theme. The order was checked for colour-vision-deficiency separation on adjacent slots in both themes; `palette.test.ts` records each slot's contrast against both surfaces. Four light-mode slots sit under 3:1 on white, so class names are always drawn as text next to the colour (on-canvas tags, class list, legends). Chip text picks black or white per colour and reaches 4.5:1 on every slot. The schema editor warns about custom colours under 2:1 in either theme, and when two different classes share a colour anywhere in the schema; a class value that appears in two tools keeps one colour. The backend fills missing class colours from the same eight light steps (`labelschema.DEFAULT_PALETTE`), so seeded and new projects get the dark-theme substitution too.
 
 ## Keyboard
 
