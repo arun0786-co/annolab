@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, select
@@ -15,6 +15,8 @@ from .models import Annotation, Item, Project, Review, ReviewComment, Task, User
 OPEN = ("assigned", "in_progress")
 COUNTED = ("assigned", "in_progress", "submitted")
 QUEUEABLE_ITEM = ("unlabeled", "in_progress")
+# An assigned task that was never saved gives its slot back after this long.
+LEASE = timedelta(hours=2)
 
 
 class WorkflowError(Exception):
@@ -66,6 +68,7 @@ def next_task(db: Session, project: Project, user: User, now: datetime | None = 
     if open_task:
         return open_task
 
+    release_stale(db, project, now or utcnow())
     counted = (
         select(Task.item_id, func.count().label("n"))
         .where(Task.status.in_(COUNTED))
@@ -96,6 +99,23 @@ def next_task(db: Session, project: Project, user: User, now: datetime | None = 
     refresh_item_status(db, item)
     audit.record(db, user.id, "task.assign", "task", task.id, project.id, {"item_id": item.id}, at=now)
     return task
+
+
+def release_stale(db: Session, project: Project, now: datetime) -> int:
+    """Drop assigned-but-never-saved tasks older than LEASE so their items can be served again."""
+    stale = db.scalars(
+        select(Task)
+        .join(Item, Item.id == Task.item_id)
+        .where(Item.project_id == project.id, Task.status == "assigned", Task.started_at < now - LEASE)
+    ).all()
+    for task in stale:
+        item = task.item
+        audit.record(db, task.user_id, "task.expire", "task", task.id, project.id, {"item_id": item.id}, at=now)
+        db.delete(task)
+        db.flush()
+        db.expire(item, ["tasks"])
+        refresh_item_status(db, item)
+    return len(stale)
 
 
 def replace_annotations(

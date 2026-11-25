@@ -159,3 +159,39 @@ def test_concurrent_mixed_capacity(app, auth):
     for t in threads:
         t.join()
     assert sorted(Counter(out).values()) == [2, 2, 2]
+
+
+def test_stale_unsaved_assignment_is_released(app, client, auth):
+    from datetime import timedelta
+
+    from annolab.models import Task
+
+    p = make_project(client, auth("admin"), annotators_per_item=1)
+    items = upload_images(client, auth("admin"), p["id"], 1)
+    t = _next(client, auth("ann1"), p["id"]).json()
+    assert _next(client, auth("ann2"), p["id"]).status_code == 204
+    with app.state.db.sessionmaker() as db:
+        task = db.get(Task, t["id"])
+        task.started_at = task.started_at - timedelta(hours=3)
+        db.commit()
+    again = _next(client, auth("ann2"), p["id"])
+    assert again.status_code == 200 and again.json()["item_id"] == items[0]["id"]
+    assert client.get(f"/api/tasks/{t['id']}", headers=auth("ann1")).status_code == 404
+    feed = client.get(f"/api/projects/{p['id']}/activity", params={"action": "task.expire"}, headers=auth("admin")).json()
+    assert feed["total"] == 1
+
+
+def test_saved_work_is_never_released(app, client, auth):
+    from datetime import timedelta
+
+    from annolab.models import Task
+
+    p = make_project(client, auth("admin"), annotators_per_item=1)
+    upload_images(client, auth("admin"), p["id"], 1)
+    t = _next(client, auth("ann1"), p["id"]).json()
+    client.put(f"/api/tasks/{t['id']}/annotations", json={"annotations": []}, headers=auth("ann1"))
+    with app.state.db.sessionmaker() as db:
+        task = db.get(Task, t["id"])
+        task.started_at = task.started_at - timedelta(days=2)
+        db.commit()
+    assert _next(client, auth("ann2"), p["id"]).status_code == 204
