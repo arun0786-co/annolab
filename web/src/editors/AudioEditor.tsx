@@ -8,7 +8,7 @@ import { clamp } from "../lib/geometry";
 import { inkOn } from "../lib/palette";
 import { assignLanes } from "../lib/spans";
 import { Icon } from "../components/Icon";
-import type { Ann, EditorProps } from "./types";
+import { ghostColor, type Ann, type EditorProps } from "./types";
 
 type Seg = { start: number; end: number };
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -192,6 +192,16 @@ export function AudioEditor(p: EditorProps) {
     if (a) a.currentTime = tt;
     setTime(tt);
   };
+  // Review: a segment picked in the side panel is brought into view and the playhead moves to it.
+  useEffect(() => {
+    if (p.pickedGhostId == null) return;
+    const a = (p.ghosts ?? []).flatMap((g) => g.anns).find((x) => x.id === p.pickedGhostId);
+    const g = a?.geometry as Seg | null | undefined;
+    if (!g || !("start" in g)) return;
+    seek(g.start);
+    if (g.start < view.t0 || g.end > view.t0 + span)
+      setView({ span, t0: clamp((g.start + g.end) / 2 - span / 2, 0, Math.max(0, duration - span)) });
+  }, [p.pickedGhostId]);
   const toggle = () => {
     const a = audioRef.current;
     if (!a) return;
@@ -478,7 +488,7 @@ export function AudioEditor(p: EditorProps) {
                       width: Math.max(1, x2 - x1),
                       top: 0,
                       bottom: 0,
-                      background: classColor(schema, a.schema_key, a.label, theme),
+                      background: ghostColor(gl, a, schema, theme, p.ghostColorBy),
                       opacity: 0.12,
                       pointerEvents: "none",
                     }}
@@ -584,12 +594,12 @@ export function AudioEditor(p: EditorProps) {
                       width: Math.max(3, x2 - x1),
                       top: 4 + gi * LANE_H,
                       height: LANE_H - 4,
-                      background: classColor(schema, a.schema_key, a.label, theme),
-                      borderLeft: `3px solid ${gl.color}`,
+                      background: ghostColor(gl, a, schema, theme, p.ghostColorBy),
+                      borderLeft: p.ghostColorBy === "class" ? `3px solid ${gl.color}` : undefined,
                       outline: picked ? "2px solid var(--focus)" : undefined,
                       borderRadius: 3,
                       fontSize: 10,
-                      color: inkOn(classColor(schema, a.schema_key, a.label, theme)),
+                      color: inkOn(ghostColor(gl, a, schema, theme, p.ghostColorBy)),
                       paddingLeft: 4,
                       overflow: "hidden",
                       whiteSpace: "nowrap",

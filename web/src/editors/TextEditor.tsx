@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Annotation } from "../api/types";
 import { classColor, className, uid } from "../lib/format";
 import { assignLanes, pieces, snapToWords } from "../lib/spans";
-import type { EditorProps } from "./types";
+import { ghostColor, type EditorProps } from "./types";
 
 const LANE_PX = 4;
 
@@ -30,6 +30,14 @@ export function TextEditor(p: EditorProps) {
   const { item, schema, anns, selected, select, tool, activeClass, hidden, edit, theme, readOnly, mode } = p;
   const text = String(item.meta.text ?? "");
   const docRef = useRef<HTMLDivElement>(null);
+  // Review: scroll a span picked in the side panel into view.
+  useEffect(() => {
+    if (p.pickedGhostId == null) return;
+    const a = (p.ghosts ?? []).flatMap((g) => g.anns).find((x) => x.id === p.pickedGhostId);
+    const s = a?.geometry as { start?: number } | null | undefined;
+    if (s?.start == null) return;
+    docRef.current?.querySelector(`[data-start="${s.start}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [p.pickedGhostId, p.ghosts]);
   const [cycle, setCycle] = useState(0);
   // A drag that ended in a text selection also fires click; that click must not select a span.
   const dragged = useRef(false);
@@ -42,7 +50,7 @@ export function TextEditor(p: EditorProps) {
         g.anns.forEach((a, i) => {
           const s = a.geometry as { start: number; end: number } | null;
           if (!s || !("start" in s)) return;
-          out.push({ id: `${g.key}:${i}`, start: s.start, end: s.end, color: classColor(schema, a.schema_key, a.label, theme), title: `${g.name}: ${className(schema, a.schema_key, a.label)}`, lane: gi, ann: a });
+          out.push({ id: `${g.key}:${i}`, start: s.start, end: s.end, color: ghostColor(g, a, schema, theme, p.ghostColorBy), title: `${g.name}: ${className(schema, a.schema_key, a.label)}`, lane: gi, ann: a });
         }),
       );
       return out;
@@ -63,7 +71,7 @@ export function TextEditor(p: EditorProps) {
         ann: a,
       };
     });
-  }, [anns, hidden, schema, theme, readOnly, p.ghosts]);
+  }, [anns, hidden, schema, theme, readOnly, p.ghosts, p.ghostColorBy]);
 
   const byId = useMemo(() => new Map(marks.map((m) => [m.id, m])), [marks]);
   const parts = useMemo(() => pieces(text.length, marks), [text.length, marks]);

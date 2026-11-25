@@ -21,7 +21,7 @@ import {
   type View,
 } from "../lib/geometry";
 import { inkOn } from "../lib/palette";
-import { geomOf, toolFor, type Ann, type EditorProps } from "./types";
+import { geomOf, ghostColor, toolFor, type Ann, type EditorProps } from "./types";
 
 const PICK_PX = 6;
 const CURSORS: Record<Handle, string> = { nw: "nwse-resize", se: "nwse-resize", ne: "nesw-resize", sw: "nesw-resize", n: "ns-resize", s: "ns-resize", e: "ew-resize", w: "ew-resize" };
@@ -291,7 +291,7 @@ export function ImageEditor(p: EditorProps) {
           {size && <rect x={view.tx} y={view.ty} width={W * k} height={H * k} fill="none" stroke="var(--border-strong)" />}
           {(p.ghosts ?? []).map((g) =>
             g.anns.map((a, i) => (
-              <ShapeView key={`${g.key}:${i}`} a={a} S={S} k={k} color={g.color} label={className(schema, a.schema_key, a.label)} ghost picked={a.id != null && a.id === p.pickedGhostId} />
+              <ShapeView key={`${g.key}:${i}`} a={a} S={S} k={k} color={ghostColor(g, a, schema, theme, p.ghostColorBy)} label={className(schema, a.schema_key, a.label)} ghost picked={a.id != null && a.id === p.pickedGhostId} />
             )),
           )}
           {visible.map((a) => {

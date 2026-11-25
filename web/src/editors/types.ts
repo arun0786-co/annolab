@@ -1,4 +1,5 @@
 import type { Annotation, ClassDef, Item, Schema, ToolDef } from "../api/types";
+import { classColor } from "../lib/format";
 import type { Theme } from "../lib/palette";
 
 /** Annotation with a client id, stable across autosaves. */
@@ -65,6 +66,13 @@ export interface EditorProps {
   /** Ghost annotation picked in review (to pin a comment to it). */
   onPickGhost?: (a: Annotation) => void;
   pickedGhostId?: number | null;
+  /** Review only: draw each annotator's shapes in their own colour, or in the class colour. */
+  ghostColorBy?: "annotator" | "class";
+}
+
+/** Colour of a review ghost annotation: its annotator's colour (default) or its class colour. */
+export function ghostColor(g: GhostLayer, a: Annotation, schema: Schema, theme: Theme, by: "annotator" | "class" = "annotator"): string {
+  return by === "class" ? classColor(schema, a.schema_key, a.label, theme) : g.color;
 }
 
 export function geomOf<T>(a: Annotation): T {

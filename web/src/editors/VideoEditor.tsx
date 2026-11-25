@@ -6,7 +6,7 @@ import { classColor, className, fmtClock, uid } from "../lib/format";
 import { clamp, clampRect, handlePoint, HANDLES, hitHandle, normRect, rectContains, resizeRect, type Handle, type Pt, type Rect } from "../lib/geometry";
 import { inkOn } from "../lib/palette";
 import { interpolate, isKeyframe, removeKeyframe, snapToFrame, sortKeyframes, trackExtent, upsertKeyframe } from "../lib/track";
-import type { Ann, EditorProps } from "./types";
+import { ghostColor, type Ann, type EditorProps } from "./types";
 
 type Drag =
   | { kind: "create"; from: Pt; to: Pt }
@@ -77,6 +77,14 @@ export function VideoEditor(p: EditorProps) {
     if (videoRef.current) videoRef.current.currentTime = tt;
     setTime(tt);
   };
+  // Review: jump to the start of an annotation picked in the side panel.
+  useEffect(() => {
+    if (p.pickedGhostId == null) return;
+    const a = (p.ghosts ?? []).flatMap((g) => g.anns).find((x) => x.id === p.pickedGhostId);
+    const g = a?.geometry as { keyframes?: { t: number }[]; start?: number } | null | undefined;
+    const t0 = g?.keyframes?.[0]?.t ?? g?.start;
+    if (t0 != null) seek(t0);
+  }, [p.pickedGhostId]);
   const toggle = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -309,7 +317,7 @@ export function VideoEditor(p: EditorProps) {
                 if (!b) return null;
                 const p1 = S(b.x, b.y);
                 const picked = a.id != null && a.id === p.pickedGhostId;
-                return <rect key={`${g.key}${i}`} x={p1.x} y={p1.y} width={b.w * k} height={b.h * k} fill="none" stroke={g.color} strokeWidth={picked ? 3 : 2} strokeDasharray="6 4" />;
+                return <rect key={`${g.key}${i}`} x={p1.x} y={p1.y} width={b.w * k} height={b.h * k} fill="none" stroke={ghostColor(g, a, schema, theme, p.ghostColorBy)} strokeWidth={picked ? 3 : 2} strokeDasharray="6 4" />;
               }),
             )}
             {boxes.map(({ a, b }) => {
