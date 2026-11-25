@@ -1235,8 +1235,14 @@ kbd {
   grid-template-columns: 1fr auto;
   gap: var(--s2);
   font-size: var(--fs-sm);
-  padding: 3px 0;
+  padding: var(--s1) 0;
   border-bottom: 1px solid var(--border);
+}
+.diff-row[aria-pressed="true"] {
+  background: var(--bg-active) !important;
+}
+.diff-where {
+  font-size: var(--fs-xs);
 }
 .stage:focus-visible {
   outline-offset: -2px;

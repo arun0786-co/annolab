@@ -144,6 +144,7 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
   const [pins, setPins] = useState<DraftPin[]>([]);
   const [comment, setComment] = useState("");
   const [picked, setPicked] = useState<Annotation | null>(null);
+  const [colorBy, setColorBy] = useState<"annotator" | "class">("annotator");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const media = useMedia(project.modality === "text" ? null : item.id);
@@ -237,6 +238,15 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
 
   const text = project.modality === "text" ? String(item.meta.text ?? "") : undefined;
   const nameOf = (a: Annotation) => className(schema, a.schema_key, a.label);
+  // Where an annotation is, in words a reviewer can find on the canvas or timeline.
+  const whereOf = (a: Annotation) => {
+    const g = a.geometry as Record<string, number> | null;
+    if (g && "w" in g && !("keyframes" in g)) return `${Math.round(g.w)}x${Math.round(g.h)} at ${Math.round(g.x)}, ${Math.round(g.y)}`;
+    return describeGeometry(a, text);
+  };
+  const owner = new Map<number, { name: string; ann: Annotation }>();
+  layers.forEach((l) => l.annotations.forEach((a) => a.id != null && owner.set(a.id, { name: l.name, ann: a })));
+  const rowStyle: React.CSSProperties = { width: "100%", background: "none", border: 0, borderBottom: "1px solid var(--border)", textAlign: "left", color: "inherit", font: "inherit", cursor: "pointer" };
   return (
     <div className="editor">
       <header className="editor-bar">
@@ -312,6 +322,7 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
               if (mode === "comment") addPin({ annotation_id: a.id ?? null, ...anchorOf(a) });
             }}
             pickedGhostId={picked?.id ?? null}
+            ghostColorBy={colorBy}
           />
         )}
         {mode === "comment" && (
@@ -331,14 +342,22 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
       <aside className="side" aria-label="Review panel">
         <section>
           <h3>Annotators</h3>
+          <div className="seg" role="group" aria-label="Colour shapes by" style={{ marginBottom: 8 }}>
+            <button aria-pressed={colorBy === "annotator"} onClick={() => setColorBy("annotator")}>
+              Colour by annotator
+            </button>
+            <button aria-pressed={colorBy === "class"} onClick={() => setColorBy("class")}>
+              By class
+            </button>
+          </div>
           {layers.map((l, i) => (
             <label key={l.user_id} className="annotator-toggle">
               <input type="checkbox" checked={visible.has(l.user_id)} onChange={() => toggleLayer(l.user_id)} />
               <i className="swatch" style={{ background: annotatorColor(i, theme), borderRadius: 5 }} />
               <span style={{ flex: 1 }}>{l.name}</span>
-              <span className="faint num" title="Agreement with the others">
-                {consensus?.per_annotator?.[String(l.user_id)] != null ? fmtScore(consensus.per_annotator[String(l.user_id)]) + " · " : ""}
-                {l.annotations.filter((a) => a.geometry).length}
+              <span className="faint num" title="Mean agreement with the other annotators, and number of shapes">
+                {consensus?.per_annotator?.[String(l.user_id)] != null ? `agr ${fmtScore(consensus.per_annotator[String(l.user_id)])} · ` : ""}
+                {l.annotations.filter((a) => a.geometry).length} shapes
               </span>
               {i < 9 && <kbd>{i + 1}</kbd>}
             </label>
@@ -355,13 +374,8 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
                 {diff.A.name} vs {diff.B.name}: {diff.rows.length} matched, {diff.rows.filter((p) => !p.sameLabel).length} label conflicts, {diff.onlyA.length + diff.onlyB.length} unmatched
               </p>
               {diff.rows.map((p, k) => (
-                <button
-                  key={k}
-                  className="diff-row"
-                  style={{ width: "100%", background: "none", border: 0, borderBottom: "1px solid var(--border)", textAlign: "left", color: "inherit", font: "inherit", cursor: "pointer" }}
-                  onClick={() => setPicked(p.a)}
-                >
-                  <span className="row" style={{ gap: 6 }}>
+                <button key={k} className="diff-row" style={rowStyle} aria-pressed={picked?.id === p.a.id} onClick={() => setPicked(p.a)}>
+                  <span className="row" style={{ gap: 6, minWidth: 0 }}>
                     <i className="swatch" style={{ background: classColor(schema, p.a.schema_key, p.a.label, theme) }} />
                     {nameOf(p.a)}
                     {!p.sameLabel && (
@@ -369,22 +383,23 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
                         vs {nameOf(p.b)}
                       </span>
                     )}
+                    <span className="faint num diff-where">{whereOf(p.a)}</span>
                   </span>
                   <span className="num" title="overlap (IoU)">{p.score.toFixed(2)}</span>
                 </button>
               ))}
               {diff.onlyA.map((a, k) => (
-                <button key={`a${k}`} className="diff-row" style={{ width: "100%", background: "none", border: 0, borderBottom: "1px solid var(--border)", textAlign: "left", color: "inherit", font: "inherit", cursor: "pointer" }} onClick={() => setPicked(a)}>
-                  <span>
-                    {nameOf(a)} <span className="faint">only {diff.A.name}</span>
+                <button key={`a${k}`} className="diff-row" style={rowStyle} aria-pressed={picked?.id === a.id} onClick={() => setPicked(a)}>
+                  <span style={{ minWidth: 0 }}>
+                    {nameOf(a)} <span className="faint num diff-where">{whereOf(a)}</span> <span className="faint">only {diff.A.name}</span>
                   </span>
                   <span className="badge badge-bad">unmatched</span>
                 </button>
               ))}
               {diff.onlyB.map((b, k) => (
-                <button key={`b${k}`} className="diff-row" style={{ width: "100%", background: "none", border: 0, borderBottom: "1px solid var(--border)", textAlign: "left", color: "inherit", font: "inherit", cursor: "pointer" }} onClick={() => setPicked(b)}>
-                  <span>
-                    {nameOf(b)} <span className="faint">only {diff.B.name}</span>
+                <button key={`b${k}`} className="diff-row" style={rowStyle} aria-pressed={picked?.id === b.id} onClick={() => setPicked(b)}>
+                  <span style={{ minWidth: 0 }}>
+                    {nameOf(b)} <span className="faint num diff-where">{whereOf(b)}</span> <span className="faint">only {diff.B.name}</span>
                   </span>
                   <span className="badge badge-bad">unmatched</span>
                 </button>
@@ -401,7 +416,7 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
             <div className="row">
               <i className="swatch" style={{ background: classColor(schema, picked.schema_key, picked.label, theme) }} />
               <strong>{nameOf(picked)}</strong>
-              <span className="faint num">{describeGeometry(picked, text)}</span>
+              <span className="faint num">{whereOf(picked)}</span>
             </div>
             {Object.entries(picked.attributes ?? {}).map(([k, v]) => (
               <div key={k} className="faint" style={{ fontSize: "var(--fs-sm)" }}>
@@ -420,7 +435,9 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
               <div className="row" style={{ marginBottom: 4 }}>
                 <span className="badge badge-accent">{p.index}</span>
                 <span className="faint num" style={{ fontSize: 11 }}>
-                  {p.annotation_id ? `annotation #${p.annotation_id}` : ""}
+                  {p.annotation_id && owner.has(p.annotation_id)
+                    ? `${nameOf(owner.get(p.annotation_id)!.ann)} (${owner.get(p.annotation_id)!.name})`
+                    : ""}
                   {p.x != null ? ` at ${p.x}, ${p.y}` : ""}
                   {p.t != null ? (project.modality === "text" ? ` at char ${p.t}` : ` at ${fmtClock(p.t)}`) : ""}
                 </span>
