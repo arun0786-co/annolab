@@ -70,7 +70,7 @@ test("review cycle: label image and audio, reject with a pinned comment, export 
   await expect(page.getByText("Queue is empty")).toBeVisible();
 
   const a1 = await token(request, "annotator1@annolab.dev");
-  const imgAnns = await api<{ label: string; geometry: { x: number; w: number; h: number } }[]>(request, "GET", `/items/${img.itemId}/annotations`, a1);
+  const imgAnns = await api<{ id: number; label: string; geometry: { x: number; w: number; h: number } }[]>(request, "GET", `/items/${img.itemId}/annotations`, a1);
   expect(imgAnns).toHaveLength(1);
   expect(imgAnns[0].geometry.w).toBeGreaterThan(10);
 
@@ -125,6 +125,9 @@ test("review cycle: label image and audio, reject with a pinned comment, export 
   await expect
     .poll(async () => (await api<{ geometry: { x: number } }[]>(request, "GET", `/items/${img.itemId}/annotations`, a1))[0].geometry.x)
     .toBeCloseTo(imgAnns[0].geometry.x + 10, 3);
+  // Autosave keeps the annotation's id, so comments pinned to it stay attached.
+  const moved = await api<{ id: number }[]>(request, "GET", `/items/${img.itemId}/annotations`, a1);
+  expect(moved.map((a) => a.id)).toEqual([imgAnns[0].id]);
   submitted = page.waitForResponse((r) => r.url().includes("/submit") && r.request().method() === "POST");
   await page.getByRole("button", { name: "Submit" }).click();
   expect((await submitted).status()).toBe(200);
