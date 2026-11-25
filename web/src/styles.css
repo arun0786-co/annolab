@@ -52,6 +52,7 @@
   --bad-soft: #fbe6e7;
 
   --review: #6a4ce2;
+  --review-soft: #efebfc;
   --unlabeled: #c3c8ce;
   --elev: 0 1px 2px rgba(15, 20, 25, 0.08), 0 4px 16px rgba(15, 20, 25, 0.08);
   --overlay: rgba(15, 18, 22, 0.4);
@@ -86,6 +87,8 @@
     --bad: #f06a6f;
     --bad-soft: #321a1c;
     --review: #9887ef;
+  --review-soft: #251f3d;
+    --review-soft: #251f3d;
     --unlabeled: #4a4f55;
     --elev: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.35);
     --overlay: rgba(0, 0, 0, 0.55);
@@ -579,6 +582,11 @@ kbd {
 .badge-bad {
   color: var(--bad);
   background: var(--bad-soft);
+  border-color: transparent;
+}
+.badge-review {
+  color: var(--review);
+  background: var(--review-soft);
   border-color: transparent;
 }
 .badge-accent {
