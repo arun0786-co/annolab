@@ -37,10 +37,12 @@ export function Overview() {
     for (const t of project.schema.tools) {
       if (key && t.key !== key) continue;
       const c = t.classes.find((c) => c.value === label);
-      if (c) return c.name;
+      // The same class value can live in two tools (a box "circle" and an outline "circle").
+      const shared = project.schema.tools.filter((u) => u.classes.some((x) => x.value === label)).length > 1;
+      if (c) return shared ? `${c.name} (${t.name})` : c.name;
     }
     const cl = project.schema.classifications.find((c) => c.key === key);
-    return cl ? `${label} (${cl.name})` : label;
+    return cl ? `${cl.name}: ${label}` : label;
   };
 
   return (
@@ -81,15 +83,9 @@ export function Overview() {
         <section className="panel">
           <div className="panel-head">
             <h2>Throughput per annotator</h2>
-            <span className="faint">submitted items</span>
+            <span className="faint">submitted work</span>
           </div>
-          <div className="panel-body">
-            {s ? (
-              <Throughput s={s} />
-            ) : (
-              <SkeletonRows rows={3} cols={2} />
-            )}
-          </div>
+          {s ? <Throughput s={s} /> : <SkeletonRows rows={3} cols={2} />}
         </section>
         <section className="panel">
           <div className="panel-head">
@@ -104,7 +100,7 @@ export function Overview() {
                   .slice(0, 12)
                   .map((l) => ({ key: `${l.schema_key ?? ""}:${l.label}`, label: nameOf(l.label, l.schema_key), value: l.count, color: colorOf(l.label, l.schema_key) }))}
                 empty="No submitted annotations yet."
-                labelWidth={150}
+                labelWidth={190}
               />
             ) : (
               <SkeletonRows rows={3} cols={2} />
@@ -158,14 +154,37 @@ export function Overview() {
 }
 
 function Throughput({ s }: { s: ProjectStats }) {
-  if (!s.annotators.length) return <p className="faint">Nobody has submitted yet.</p>;
+  if (!s.annotators.length) return <p className="faint panel-body">Nobody has submitted yet.</p>;
+  const rows = [...s.annotators].sort((a, b) => b.items - a.items);
+  const max = Math.max(1, ...rows.map((a) => a.items));
   return (
-    <HBarChart
-      rows={[...s.annotators]
-        .sort((a, b) => b.items - a.items)
-        .map((a) => ({ key: String(a.user_id), label: a.name, value: a.items, note: `median ${fmtSeconds(a.median_seconds)} per item` }))}
-      unit=" items"
-    />
+    <table className="table">
+      <thead>
+        <tr>
+          <th>Annotator</th>
+          <th>Submitted</th>
+          <th className="r">Skipped</th>
+          <th className="r">Median per item</th>
+          <th className="r">Total time</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((a) => (
+          <tr key={a.user_id}>
+            <td>{a.name}</td>
+            <td>
+              <span className="inline-bar">
+                <span style={{ width: `${(a.items / max) * 100}%` }} />
+              </span>
+              <span className="num">{a.items}</span>
+            </td>
+            <td className="r">{a.skipped}</td>
+            <td className="r">{fmtSeconds(a.median_seconds)}</td>
+            <td className="r">{fmtSeconds(a.total_seconds)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

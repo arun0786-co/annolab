@@ -182,6 +182,7 @@ export interface AnnotatorStat {
   items: number;
   skipped: number;
   median_seconds: number | null;
+  total_seconds: number | null;
 }
 
 export interface LabelCount {

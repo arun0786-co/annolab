@@ -158,6 +158,14 @@ export function Projects() {
               })}
             </tbody>
           </table>
+          <div className="legend" style={{ padding: "8px 12px", borderTop: "1px solid var(--border)" }} aria-hidden="true">
+            {ITEM_STATUSES.map((k) => (
+              <span key={k}>
+                <i className="swatch" style={{ background: STATUS_META[k].color }} />
+                {STATUS_META[k].label}
+              </span>
+            ))}
+          </div>
         </div>
       )}
       {creating && <NewProject onClose={() => setCreating(false)} onCreated={(id) => nav(`/projects/${id}/schema`)} />}
