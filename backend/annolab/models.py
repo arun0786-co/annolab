@@ -70,6 +70,7 @@ class Project(Base):
 
 class Item(Base):
     __tablename__ = "items"
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
@@ -88,7 +89,8 @@ class Item(Base):
 
 class Task(Base):
     __tablename__ = "tasks"
-    __table_args__ = (UniqueConstraint("item_id", "user_id", name="uq_task_item_user"),)
+    # AUTOINCREMENT: ids of deleted tasks are never handed out again.
+    __table_args__ = (UniqueConstraint("item_id", "user_id", name="uq_task_item_user"), {"sqlite_autoincrement": True})
 
     id: Mapped[int] = mapped_column(primary_key=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("items.id", ondelete="CASCADE"), index=True)
@@ -107,6 +109,7 @@ class Task(Base):
 
 class Annotation(Base):
     __tablename__ = "annotations"
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), index=True)
