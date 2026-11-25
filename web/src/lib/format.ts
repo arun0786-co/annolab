@@ -5,17 +5,18 @@ export const STATUS_META: Record<ItemStatus, { label: string; color: string; bad
   unlabeled: { label: "Unlabeled", color: "var(--unlabeled)", badge: "" },
   in_progress: { label: "In progress", color: "var(--warn)", badge: "badge-warn" },
   labeled: { label: "Labeled", color: "var(--accent)", badge: "badge-accent" },
-  in_review: { label: "In review", color: "var(--review)", badge: "" },
+  in_review: { label: "In review", color: "var(--review)", badge: "badge-review" },
   approved: { label: "Approved", color: "var(--good)", badge: "badge-good" },
   rejected: { label: "Rejected", color: "var(--bad)", badge: "badge-bad" },
 };
 
 export function fmtSeconds(s: number | null | undefined): string {
   if (s == null || !isFinite(s)) return "–";
-  if (s < 60) return `${s.toFixed(s < 10 ? 1 : 0)}s`;
-  const m = Math.floor(s / 60);
-  const r = Math.round(s % 60);
-  return `${m}m ${String(r).padStart(2, "0")}s`;
+  if (s < 9.95) return `${s.toFixed(1)}s`;
+  // Round once, then split, so 659.6 s reads 11m 00s and never 10m 60s.
+  const t = Math.round(s);
+  if (t < 60) return `${t}s`;
+  return `${Math.floor(t / 60)}m ${String(t % 60).padStart(2, "0")}s`;
 }
 
 export function fmtClock(t: number, decimals = 2): string {
