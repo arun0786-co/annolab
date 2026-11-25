@@ -315,7 +315,15 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
           />
         )}
         {mode === "comment" && (
-          <div className="stage-hud" style={{ top: 8, bottom: "auto", left: "50%", transform: "translateX(-50%)" }}>
+          <div
+            className="stage-hud"
+            style={
+              // Audio has a time ruler along the top edge; keep the hint below it, at the right.
+              project.modality === "audio"
+                ? { top: 30, bottom: "auto", left: "auto", right: 8 }
+                : { top: 8, bottom: "auto", left: "50%", transform: "translateX(-50%)" }
+            }
+          >
             Click to pin a comment. Click a shape to attach it to that annotation. Esc to stop.
           </div>
         )}
