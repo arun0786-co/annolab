@@ -16,13 +16,6 @@ function median(xs: number[]) {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
-const METRIC_NAME: Record<string, string> = {
-  iou: "mean IoU",
-  temporal_iou: "mean temporal IoU",
-  kappa: "Cohen's kappa",
-  fleiss_kappa: "Fleiss' kappa",
-  span_f1: "span F1",
-};
 
 export function Overview() {
   const { project } = useProject();
@@ -46,7 +39,8 @@ export function Overview() {
       const c = t.classes.find((c) => c.value === label);
       if (c) return c.name;
     }
-    return label;
+    const cl = project.schema.classifications.find((c) => c.key === key);
+    return cl ? `${label} (${cl.name})` : label;
   };
 
   return (
@@ -66,7 +60,7 @@ export function Overview() {
         <Tile
           label="Agreement"
           value={s ? fmtScore(s.agreement.mean) : null}
-          sub={s ? `${METRIC_NAME[s.agreement.metric ?? ""] ?? s.agreement.metric ?? "score"} over ${s.agreement.items} items` : ""}
+          sub={s ? `mean pairwise F1 over ${s.agreement.items} items` : ""}
         />
       </div>
 
@@ -110,11 +104,28 @@ export function Overview() {
                   .slice(0, 12)
                   .map((l) => ({ key: `${l.schema_key ?? ""}:${l.label}`, label: nameOf(l.label, l.schema_key), value: l.count, color: colorOf(l.label, l.schema_key) }))}
                 empty="No submitted annotations yet."
+                labelWidth={150}
               />
             ) : (
               <SkeletonRows rows={3} cols={2} />
             )}
           </div>
+        </section>
+      </div>
+
+      <div className="grid grid-2">
+        <section className="panel">
+          <div className="panel-head">
+            <h2>Agreement by tool</h2>
+            <span className="faint">pairs of annotators on the same item</span>
+          </div>
+          {s ? <AgreementTable s={s} names={Object.fromEntries([...project.schema.tools, ...project.schema.classifications].map((t) => [t.key, t.name]))} /> : <SkeletonRows rows={3} cols={4} />}
+        </section>
+        <section className="panel">
+          <div className="panel-head">
+            <h2>Submissions per day</h2>
+          </div>
+          <div className="panel-body">{s ? <DailyBars daily={s.daily} /> : <SkeletonRows rows={3} cols={1} />}</div>
         </section>
       </div>
 
@@ -133,7 +144,7 @@ export function Overview() {
             <ul className="feed">
               {activity.data.map((e) => (
                 <li key={e.id}>
-                  <strong>{e.user_name ?? (e.user_id ? `user ${e.user_id}` : "system")}</strong>
+                  <strong>{e.user?.name ?? "system"}</strong>
                   <span className="muted">{describe(e)}</span>
                   <time dateTime={e.at}>{fmtAgo(e.at)}</time>
                 </li>
@@ -156,6 +167,56 @@ function Throughput({ s }: { s: ProjectStats }) {
       unit=" items"
     />
   );
+}
+
+function AgreementTable({ s, names }: { s: ProjectStats; names: Record<string, string> }) {
+  const { tools, classifications } = s.agreement;
+  if (!tools.length && !classifications.length) return <p className="faint panel-body">Needs items labeled by two or more annotators.</p>;
+  return (
+    <table className="table">
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th className="r">Items</th>
+          <th className="r">F1 agreement</th>
+          <th className="r">Mean IoU</th>
+          <th className="r">Kappa</th>
+        </tr>
+      </thead>
+      <tbody>
+        {tools.map((t) => (
+          <tr key={t.schema_key}>
+            <td>
+              {names[t.schema_key] ?? t.schema_key} <span className="faint">{t.type}</span>
+            </td>
+            <td className="r">{t.items}</td>
+            <td className="r">{fmtScore(t.mean_agreement)}</td>
+            <td className="r">{fmtScore(t.mean_iou)}</td>
+            <td className="r faint">{"\u2013"}</td>
+          </tr>
+        ))}
+        {classifications.map((c) => (
+          <tr key={c.schema_key}>
+            <td>
+              {names[c.schema_key] ?? c.schema_key} <span className="faint">classification</span>
+            </td>
+            <td className="r">{c.items}</td>
+            <td className="r faint">{"\u2013"}</td>
+            <td className="r faint">{"\u2013"}</td>
+            <td className="r" title={`Fleiss ${fmtScore(c.fleiss_kappa)}, mean Cohen ${fmtScore(c.mean_cohen_kappa)}`}>
+              {fmtScore(c.fleiss_kappa ?? c.mean_cohen_kappa)}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function DailyBars({ daily }: { daily: ProjectStats["daily"] }) {
+  if (!daily.length) return <p className="faint">No submissions yet.</p>;
+  const last = daily.slice(-14);
+  return <HBarChart rows={last.map((d) => ({ key: d.date, label: d.date, value: d.submitted }))} labelWidth={90} unit=" submitted" />;
 }
 
 function Tile({ label, value, sub }: { label: string; value: string | null; sub?: string }) {
