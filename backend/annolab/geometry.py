@@ -44,10 +44,15 @@ def point_similarity(a: dict[str, float], b: dict[str, float], sigma: float = 10
     return math.exp(-d2 / (2 * sigma * sigma))
 
 
+# Float slack for time comparisons, e.g. 3 * 0.1 is 0.30000000000000004.
+EPS = 1e-6
+
+
 def track_box_at(keyframes: list[dict[str, float]], t: float) -> dict[str, float] | None:
     """Box at time t with linear interpolation; None outside the track's extent."""
-    if not keyframes or t < keyframes[0]["t"] or t > keyframes[-1]["t"]:
+    if not keyframes or t < keyframes[0]["t"] - EPS or t > keyframes[-1]["t"] + EPS:
         return None
+    t = min(max(t, keyframes[0]["t"]), keyframes[-1]["t"])
     for k0, k1 in zip(keyframes, keyframes[1:]):
         if k0["t"] <= t <= k1["t"]:
             span = k1["t"] - k0["t"]
@@ -69,7 +74,7 @@ def track_iou(a: dict[str, Any], b: dict[str, Any], step: float = 0.1) -> float:
     n = max(1, int(round((t1 - t0) / step)) + 1)
     total = 0.0
     for i in range(n):
-        t = t0 + i * step if n > 1 else t0
+        t = min(t0 + i * step, t1) if n > 1 else t0
         ba, bb = track_box_at(ka, t), track_box_at(kb, t)
         if ba is not None and bb is not None:
             total += bbox_iou(ba, bb)
