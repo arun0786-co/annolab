@@ -45,7 +45,7 @@ The schema decides which tools a project has. Adding a label type means editing 
 
 ### 2.2 SQLite, in-process tests, no services
 
-The backend is FastAPI with SQLAlchemy 2 on a single SQLite file. A labeling team of a few dozen people produces far fewer writes than SQLite handles. One file means no database server to start, and the tests can create a fresh database per test in a temp folder. All 132 backend tests run in-process with FastAPI's TestClient (`make backend-test`: `132 passed in 18.06s`).
+The backend is FastAPI with SQLAlchemy 2 on a single SQLite file. A labeling team of a few dozen people produces far fewer writes than SQLite handles. One file means no database server to start, and the tests can create a fresh database per test in a temp folder. All 132 backend tests run in-process with FastAPI's TestClient (`make backend-test`: `132 passed in 17.62s`).
 
 ### 2.3 Status is derived, never set by hand
 
@@ -193,14 +193,14 @@ These numbers are an upper bound. The heart sounds are generated at 25 dB SNR wi
 
 ### 7.1 Tests
 
-`make test` runs everything below and exited 0 in 53.4 s wall time.
+`make test` runs everything below and exited 0 in 51.5 s wall time.
 
 | Suite | Command | Result |
 |---|---|---|
-| Backend | `cd backend && uv run pytest` | 132 passed in 18.06 s |
+| Backend | `cd backend && uv run pytest` | 132 passed in 17.62 s |
 | Web unit | `vitest run` | 8 files, 57 tests passed |
 | Typecheck | `tsc --noEmit` | clean |
-| End to end | Playwright via `scripts/with-stack.sh` | 6 passed (29.0 s) |
+| End to end | Playwright via `scripts/with-stack.sh` | 6 passed (28.7 s) |
 
 The backend tests cover auth, a 22-row role matrix, schema validation, the queue (including the three concurrency tests), autosave, the review cycle with pinned comments, consensus math against hand-worked values, exports (COCO loaded with pycocotools, YOLO zip contents, JSONL parsed), media with HTTP Range, pre-label precision and recall on synthetic data, stats, activity, and a small seed build.
 
@@ -217,7 +217,7 @@ The Playwright specs run against a throwaway stack: a freshly seeded data dir in
 
 ### 7.2 Screens
 
-`make screenshots` takes 18 PNGs at 1440x900 from freshly seeded data (3 Playwright tests passed in 26.7 s); the largest is 386,647 bytes. Each one was opened and checked for overlap, clipping, empty panels and contrast.
+`make screenshots` takes 18 PNGs at 1440x900 from freshly seeded data (3 Playwright tests passed in 26.5 s); the largest is 386,647 bytes. Each one was opened and checked for overlap, clipping, empty panels and contrast.
 
 ![Reviewing audio: two annotators' segments, consensus diff and a pinned comment](images/review-audio.png)
 

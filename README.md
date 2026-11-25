@@ -158,14 +158,14 @@ make eval-prelabel # pre-label precision and recall on the seeded data
 
 All from commands run on the development machine (Apple silicon laptop).
 
-**Tests** (`make test`, exit 0, 53.4 s wall time in total):
+**Tests** (`make test`, exit 0, 51.5 s wall time in total):
 
 | Suite | Result | Needs a server? |
 |---|---|---|
-| Backend pytest (`cd backend && uv run pytest`) | 132 passed in 18.06 s | No, in-process TestClient with a temp database per test |
+| Backend pytest (`cd backend && uv run pytest`) | 132 passed in 17.62 s | No, in-process TestClient with a temp database per test |
 | Web unit tests (`vitest run`) | 8 files, 57 tests passed | No |
 | Typecheck (`tsc --noEmit`) | clean | No |
-| Playwright e2e | 6 passed (29.0 s) | Starts its own via `with-stack.sh` |
+| Playwright e2e | 6 passed (28.7 s) | Starts its own via `with-stack.sh` |
 
 The e2e specs cover: an admin creating a project, editing its schema, uploading files; an annotator labeling an image (box with a class) and an audio segment and submitting; a reviewer rejecting with a pinned comment; the annotator seeing that comment, moving the box and resubmitting; the reviewer approving; the admin downloading COCO and the test checking its contents; and a crawl of every screen as each role that fails on any console error or failed API call.
 
@@ -185,7 +185,7 @@ The shape scenes have flat backgrounds, so the image detector is close to perfec
 
 - `make seed`: 1.2 s for 4 projects, 54 items, 101 tasks, 1,029 annotations and 15 reviews.
 - Production build (`npm run build`): JS 317.79 kB (101.16 kB gzip), CSS 19.19 kB (4.35 kB gzip). Runtime dependencies: react, react-dom, react-router-dom.
-- `make screenshots`: 3 tests passed in 26.7 s (32.1 s including stack start and PNG shrinking); 18 PNGs, the largest 386,647 bytes.
+- `make screenshots`: 3 tests passed in 26.5 s (31.9 s including stack start and PNG shrinking); 18 PNGs, the largest 386,647 bytes.
 
 ## Compared with the course project it replaces
 
