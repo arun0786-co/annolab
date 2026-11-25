@@ -62,7 +62,7 @@ export function Overview() {
         <Tile
           label="Agreement"
           value={s ? fmtScore(s.agreement.mean) : null}
-          sub={s ? `mean pairwise F1 over ${s.agreement.items} items` : ""}
+          sub={s ? `pairwise over ${s.agreement.items} items, shapes (F1) and classifications` : ""}
         />
       </div>
 

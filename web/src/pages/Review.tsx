@@ -263,7 +263,7 @@ function ReviewView({ project, item, consensus, layers, reviews, score }: Loaded
         <span className={`badge ${STATUS_META[item.status]?.badge ?? ""}`}>{STATUS_META[item.status]?.label ?? item.status}</span>
         <span className="spacer" />
         {score != null && (
-          <span className="muted num" title="Mean pairwise F1 agreement across tools and classifications">
+          <span className="muted num" title="Mean pairwise agreement over tools and classifications: F1 for shapes, match or Jaccard for classifications">
             agreement <strong style={{ color: "var(--text)" }}>{fmtScore(score)}</strong>
           </span>
         )}
