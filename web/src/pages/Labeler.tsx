@@ -96,9 +96,10 @@ function toAnns(xs: Annotation[]): Ann[] {
   return xs.map((a) => ({ ...a, cid: a.id != null ? `s${a.id}` : uid(), attributes: a.attributes ?? {} }));
 }
 
+/** Wire form for autosave. A known id is kept, so the server updates that row and pinned review comments stay attached. */
 function strip(a: Ann): Annotation {
-  const { cid: _cid, id: _id, task_id: _t, item_id: _i, user_id: _u, created_at: _c, updated_at: _up, ...rest } = a;
-  void _cid, _id, _t, _i, _u, _c, _up;
+  const { cid: _cid, task_id: _t, item_id: _i, user_id: _u, created_at: _c, updated_at: _up, ...rest } = a;
+  void _cid, _t, _i, _u, _c, _up;
   return rest;
 }
 
