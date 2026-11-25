@@ -640,10 +640,10 @@ export function AudioEditor(p: EditorProps) {
           </button>
         </div>
         <button className="btn btn-sm" onClick={() => zoom(1.5)} aria-label="Zoom out">
-          -
+          <Icon name="minus" />
         </button>
         <button className="btn btn-sm" onClick={() => zoom(0.66)} aria-label="Zoom in">
-          +
+          <Icon name="plus" />
         </button>
         <span className="faint num">{span < duration ? `${span.toFixed(2)}s window` : "full length"}</span>
         <span className="spacer" />

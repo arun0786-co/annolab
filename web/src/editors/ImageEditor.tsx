@@ -20,6 +20,7 @@ import {
   type Shape,
   type View,
 } from "../lib/geometry";
+import { Icon } from "../components/Icon";
 import { inkOn } from "../lib/palette";
 import { geomOf, ghostColor, toolFor, type Ann, type EditorProps } from "./types";
 
@@ -128,7 +129,7 @@ export function ImageEditor(p: EditorProps) {
         const d = e.shiftKey ? 10 : 1;
         const dx = e.key === "ArrowLeft" ? -d : e.key === "ArrowRight" ? d : 0;
         const dy = e.key === "ArrowUp" ? -d : e.key === "ArrowDown" ? d : 0;
-        edit.patch(selected, (a) => translate(a, dx, dy));
+        edit.patch(selected, (a) => (size ? clampAnn(translate(a, dx, dy), W, H) : translate(a, dx, dy)));
         e.preventDefault();
         e.stopImmediatePropagation();
       } else return;
@@ -359,13 +360,13 @@ export function ImageEditor(p: EditorProps) {
       </div>
       <div className="stage-hud" style={{ left: "auto", right: 8 }}>
         <button className="btn btn-ghost btn-sm" onClick={() => setView((v) => zoomAt(v, width / 2, height / 2, 0.8))} aria-label="Zoom out">
-          -
+          <Icon name="minus" />
         </button>
         <button className="btn btn-ghost btn-sm" onClick={fit} aria-label="Fit to screen">
           Fit
         </button>
         <button className="btn btn-ghost btn-sm" onClick={() => setView((v) => zoomAt(v, width / 2, height / 2, 1.25))} aria-label="Zoom in">
-          +
+          <Icon name="plus" />
         </button>
       </div>
     </div>
