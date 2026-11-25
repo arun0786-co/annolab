@@ -366,8 +366,10 @@ function ReviewerFeedback({ review, pins, text, onPick }: { review: Review; pins
                 <span className="pin-num" aria-hidden="true">
                   {p.index}
                 </span>
-                <span className="feedback-body">{p.body}</span>
-                <span className="faint num">{p.annotation_id != null ? "on annotation" : anchor(p)}</span>
+                <span className="feedback-body">
+                  {p.body}
+                  <span className="faint num">{p.annotation_id != null ? "On an annotation, click to select it" : `At ${anchor(p)}`}</span>
+                </span>
               </button>
             </li>
           ))}
