@@ -12,6 +12,7 @@ import type {
   ProjectStats,
   Review,
   ReviewCommentInput,
+  ReviewItem,
   Task,
   User,
 } from "./types";
@@ -114,37 +115,40 @@ async function request<T>(method: string, path: string, body?: unknown, query?: 
 // ---------- normalizers: keep the UI independent of small server shape changes ----------
 
 function normStats(s: Record<string, unknown>): ProjectStats {
-  const countsSrc = (s.counts ?? s.by_status ?? s.status_counts ?? {}) as Record<string, number>;
-  const counts = Object.fromEntries(ITEM_STATUSES.map((k) => [k, Number(countsSrc[k] ?? 0)])) as Record<
-    ItemStatus,
-    number
-  >;
-  const total = Number(s.total ?? s.total_items ?? Object.values(counts).reduce((a, b) => a + b, 0));
-  const annSrc = (s.annotators ?? s.throughput ?? []) as Record<string, unknown>[];
-  const annotators = annSrc.map((a) => ({
-    user_id: Number(a.user_id ?? a.id),
-    name: String(a.name ?? a.email ?? `user ${a.user_id}`),
-    items: Number(a.items ?? a.submitted ?? a.count ?? 0),
-    median_seconds: a.median_seconds == null ? null : Number(a.median_seconds),
+  const countsSrc = (s.status_counts ?? s.counts ?? {}) as Record<string, number>;
+  const counts = Object.fromEntries(ITEM_STATUSES.map((k) => [k, Number(countsSrc[k] ?? 0)])) as Record<ItemStatus, number>;
+  const total = Number(s.item_count ?? s.total ?? Object.values(counts).reduce((a, b) => a + b, 0));
+  const annotators = ((s.throughput ?? []) as Record<string, unknown>[]).map((a) => {
+    const u = (a.user ?? {}) as { id?: number; name?: string; email?: string };
+    return {
+      user_id: Number(u.id ?? a.user_id),
+      name: String(u.name ?? u.email ?? `user ${u.id}`),
+      items: Number(a.submitted ?? 0),
+      skipped: Number(a.skipped ?? 0),
+      median_seconds: a.median_seconds == null ? null : Number(a.median_seconds),
+    };
+  });
+  const ag = (s.agreement ?? {}) as Record<string, unknown>;
+  const agreement: ProjectStats["agreement"] = {
+    mean: typeof ag.mean_item_agreement === "number" ? ag.mean_item_agreement : null,
+    items: Number(ag.items_compared ?? 0),
+    tools: (ag.tools ?? []) as ProjectStats["agreement"]["tools"],
+    classifications: (ag.classifications ?? []) as ProjectStats["agreement"]["classifications"],
+  };
+  const labels = ((s.label_distribution ?? []) as Record<string, unknown>[]).map((l) => ({
+    label: String(l.label ?? "(none)"),
+    schema_key: l.schema_key as string | undefined,
+    count: Number(l.count ?? 0),
   }));
-  const agSrc = (s.agreement ?? {}) as Record<string, unknown>;
-  const agreement = {
-    mean: agSrc.mean ?? agSrc.score ?? agSrc.overall ?? null,
-    items: Number(agSrc.items ?? agSrc.n_items ?? 0),
-    metric: agSrc.metric as string | undefined,
-  } as ProjectStats["agreement"];
-  if (typeof agreement.mean !== "number") agreement.mean = null;
-  const labSrc = (s.labels ?? s.label_distribution ?? []) as unknown;
-  let labels: ProjectStats["labels"] = [];
-  if (Array.isArray(labSrc))
-    labels = labSrc.map((l: Record<string, unknown>) => ({
-      label: String(l.label ?? l.value),
-      schema_key: l.schema_key as string | undefined,
-      count: Number(l.count ?? 0),
-    }));
-  else if (labSrc && typeof labSrc === "object")
-    labels = Object.entries(labSrc as Record<string, number>).map(([label, count]) => ({ label, count: Number(count) }));
-  return { counts, total, annotators, agreement, labels };
+  return {
+    counts,
+    total,
+    annotators,
+    agreement,
+    labels,
+    daily: (s.daily ?? []) as ProjectStats["daily"],
+    reviews: (s.reviews ?? {}) as Record<string, number>,
+  };
 }
 
 function normPage<T>(p: unknown): Page<T> {
@@ -171,8 +175,8 @@ export const api = {
   updateProject: (id: number, p: Partial<ProjectInput>) => request<Project>("PATCH", `/projects/${id}`, p),
   deleteProject: (id: number) => request<null>("DELETE", `/projects/${id}`),
   stats: (id: number) => request<Record<string, unknown>>("GET", `/projects/${id}/stats`).then(normStats),
-  activity: (id: number, limit = 30) =>
-    request<ActivityEvent[] | Page<ActivityEvent>>("GET", `/projects/${id}/activity`, undefined, { limit }).then(
+  activity: (id: number, pageSize = 30) =>
+    request<Page<ActivityEvent>>("GET", `/projects/${id}/activity`, undefined, { page: 1, page_size: pageSize }).then(
       (r) => normPage<ActivityEvent>(r).items,
     ),
 
@@ -182,17 +186,18 @@ export const api = {
   upload: (projectId: number, files: File[]) => {
     const fd = new FormData();
     files.forEach((f) => fd.append("files", f, f.name));
-    return request<Item[] | { items: Item[] }>("POST", `/projects/${projectId}/items`, fd);
+    return request<{ created: Item[]; errors: { filename?: string; detail?: string }[] }>("POST", `/projects/${projectId}/items`, fd);
   },
 
-  /** Media needs the bearer header, so it is fetched as a blob and exposed as an object URL. */
-  mediaBlob: async (itemId: number) => (await raw("GET", `/items/${itemId}/media`)).blob(),
+  /** Media elements cannot send headers, so media and thumbnails carry the token as a query parameter. */
+  mediaSrc: (itemId: number) => `${BASE}/items/${itemId}/media${qs({ token })}`,
+  thumbSrc: (itemId: number) => `${BASE}/items/${itemId}/thumbnail${qs({ token })}`,
 
   nextTask: (projectId: number) => request<Task | null>("GET", `/projects/${projectId}/queue/next`),
   task: (id: number) => request<Task>("GET", `/tasks/${id}`),
   submitTask: (id: number, time_spent_ms: number) =>
     request<Task>("POST", `/tasks/${id}/submit`, { time_spent_ms }),
-  skipTask: (id: number) => request<Task>("POST", `/tasks/${id}/skip`),
+  skipTask: (id: number, reason = "") => request<Task>("POST", `/tasks/${id}/skip`, { reason }),
 
   annotations: (itemId: number, userId?: number) =>
     request<Annotation[] | { items: Annotation[] }>("GET", `/items/${itemId}/annotations`, undefined, {
@@ -208,9 +213,9 @@ export const api = {
       (r) => (Array.isArray(r) ? r : r.proposals ?? r.items ?? []),
     ),
 
-  nextReview: (projectId: number) => request<Item | { item: Item } | null>("GET", `/projects/${projectId}/review/queue/next`).then(
-    (r) => (r && "item" in r ? r.item : (r as Item | null)),
-  ),
+  nextReview: (projectId: number, after?: number) =>
+    request<ReviewItem | null>("GET", `/projects/${projectId}/review/queue/next`, undefined, { after }),
+  reviewItem: (itemId: number) => request<ReviewItem>("GET", `/items/${itemId}/review`),
   reviews: (itemId: number) =>
     request<Review[] | Page<Review>>("GET", `/items/${itemId}/reviews`).then((r) => normPage<Review>(r).items),
   review: (itemId: number, decision: "approve" | "reject", comment: string, comments: ReviewCommentInput[]) =>

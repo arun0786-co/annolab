@@ -61,7 +61,8 @@ export interface Project {
   instructions: string;
   created_at: string;
   item_count?: number;
-  counts?: Partial<Record<ItemStatus, number>>;
+  status_counts?: Partial<Record<ItemStatus, number>>;
+  progress?: number;
   agreement?: number | null;
 }
 
@@ -95,6 +96,8 @@ export interface Item {
   status: ItemStatus;
   created_at: string;
   annotator_count?: number;
+  media_url?: string;
+  thumbnail_url?: string | null;
 }
 
 export interface Page<T> {
@@ -114,6 +117,8 @@ export interface Task {
   time_spent_ms: number;
   item?: Item;
   project_id?: number;
+  annotations?: Annotation[];
+  reviews?: Review[];
 }
 
 export type Geometry =
@@ -154,10 +159,17 @@ export interface ReviewCommentInput {
   t?: number | null;
 }
 
+export interface UserBrief {
+  id: number;
+  name: string;
+  email?: string;
+  role?: Role;
+}
+
 export interface Review {
   id: number;
   item_id: number;
-  reviewer_id: number;
+  reviewer?: UserBrief;
   decision: "approve" | "reject";
   comment: string;
   created_at: string;
@@ -168,6 +180,7 @@ export interface AnnotatorStat {
   user_id: number;
   name: string;
   items: number;
+  skipped: number;
   median_seconds: number | null;
 }
 
@@ -177,10 +190,27 @@ export interface LabelCount {
   count: number;
 }
 
+export interface ToolAgreement {
+  schema_key: string;
+  type: string;
+  items: number;
+  mean_agreement: number | null;
+  mean_iou: number | null;
+}
+
+export interface ClassAgreement {
+  schema_key: string;
+  items: number;
+  fleiss_kappa: number | null;
+  mean_cohen_kappa: number | null;
+  cohen_pairs?: { a: number; b: number; n: number; kappa: number | null }[];
+}
+
 export interface AgreementSummary {
   mean: number | null;
   items: number;
-  metric?: string;
+  tools: ToolAgreement[];
+  classifications: ClassAgreement[];
 }
 
 export interface ProjectStats {
@@ -189,30 +219,72 @@ export interface ProjectStats {
   annotators: AnnotatorStat[];
   agreement: AgreementSummary;
   labels: LabelCount[];
+  daily: { date: string; submitted: number }[];
+  reviews: Record<string, number>;
 }
 
-export interface ConsensusPair {
-  a: number | string;
-  b: number | string;
-  user_a: number;
-  user_b: number;
-  score: number;
-  label_match?: boolean;
+export interface AnnotatorSet {
+  user: UserBrief;
+  task_id?: number;
+  time_spent_ms?: number;
+  annotations: Annotation[];
+}
+
+export interface MatchOut {
+  a_id: number | null;
+  b_id: number | null;
+  iou: number;
+  label_match: boolean;
+}
+
+export interface ToolPair {
+  a: number;
+  b: number;
+  matches: MatchOut[];
+  unmatched_a: (number | null)[];
+  unmatched_b: (number | null)[];
+  agreement: number;
+  mean_iou: number | null;
+}
+
+export interface ToolConsensus {
+  schema_key: string;
+  type: string;
+  threshold: number;
+  counts: Record<string, number>;
+  pairs: ToolPair[];
+  agreement: number | null;
+  mean_iou: number | null;
+}
+
+export interface ClassConsensus {
+  schema_key: string;
+  type: string;
+  votes: Record<string, unknown>;
+  pairs: { a: number; b: number; agreement: number }[];
+  agreement: number | null;
+  majority: string | null;
 }
 
 export interface Consensus {
   item_id: number;
-  metric: string;
+  annotators: AnnotatorSet[];
+  tools: ToolConsensus[];
+  classifications: ClassConsensus[];
+  per_annotator: Record<string, number | null>;
   score: number | null;
-  annotators: { user_id: number; name: string; annotations: Annotation[] }[];
-  pairs: ConsensusPair[];
-  unmatched?: { user_id: number; annotation_id: number | string }[];
+}
+
+export interface ReviewItem {
+  item: Item;
+  annotators: AnnotatorSet[];
+  reviews: Review[];
+  consensus_score: number | null;
 }
 
 export interface ActivityEvent {
   id: number;
-  user_id: number | null;
-  user_name?: string | null;
+  user: UserBrief | null;
   action: string;
   entity: string;
   entity_id: number | null;
